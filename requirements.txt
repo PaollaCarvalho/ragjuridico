@@ -1,0 +1,10 @@
+python-dotenv
+pinecone
+sentence-transformers
+torch
+openai
+PyMuPDF  # fitz
+spacy
+unidecode
+Flask
+# Recomenda-se fixar as versões para produção, ex: openai==1.3.5
