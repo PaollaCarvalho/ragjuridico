@@ -8,7 +8,7 @@ PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # --- CONFIGURAÇÕES DE DIRETÓRIO ---
-PDF_DIRECTORY = "contratos"
+PDF_DIRECTORY = "rag-juridico\contratos"
 
 # --- CONFIGURAÇÕES DO PINECONE ---
 PINECONE_INDEX_NAME = "rag-juridico"

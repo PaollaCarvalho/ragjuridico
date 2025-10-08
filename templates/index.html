@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assistente Jurídico RAG - Duas Etapas</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Assistente Jurídico com RAG</h1>
+        </header>
+
+        <main>
+            {% if not documento_foco %}
+            <div class="step-box">
+                <h2>Etapa 1: Encontrar o Documento</h2>
+                <p>Descreva o assunto ou o nome do documento que você deseja analisar.</p>
+                <form action="/" method="POST">
+                    <textarea name="query_doc" rows="3" placeholder="Ex: contrato de prestação de serviços com a empresa Acme"></textarea>
+                    <button type="submit" name="submit_busca_doc">Buscar Documento</button>
+                </form>
+            </div>
+
+            {% else %}
+            <div class="focus-box">
+                <h2>Documento em Foco: <span>{{ documento_foco }}</span></h2>
+                <a href="{{ url_for('voltar') }}" class="back-button">Escolher outro documento</a>
+            </div>
+
+            <div class="step-box">
+                <h2>Etapa 2: Perguntar sobre este Documento</h2>
+                <p>Faça sua pergunta específica sobre o <strong>{{ documento_foco }}</strong>.</p>
+                <form action="/" method="POST">
+                    <input type="hidden" name="documento_foco" value="{{ documento_foco }}">
+                    
+                    <textarea name="pergunta_especifica" rows="3" placeholder="Ex: Qual a cláusula de rescisão?">{{ question or '' }}</textarea>
+                    <button type="submit" name="submit_pergunta_especifica">Perguntar</button>
+                </form>
+            </div>
+
+            {% if answer %}
+            <div class="result">
+                <h2>Resposta</h2>
+                <div class="answer-box">
+                    <p>{{ answer | replace('\n', '<br>') | safe }}</p>
+                </div>
+
+                {% if context %}
+                <div class="context">
+                    <h3>Contexto Utilizado</h3>
+                    {% for doc in context[:3] %}
+                    <div class="context-item">
+                        <p class="metadata">
+                            <strong>Score de Relevância:</strong> {{ "%.4f"|format(doc.score_reranker) }}
+                        </p>
+                        <p class="text">"...{{ doc.texto }}..."</p>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {% endif %}
+        </main>
+    </div>
+</body>
+</html>
