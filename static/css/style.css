@@ -1,6 +1,42 @@
 /* static/css/style.css */
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap');
 
+.topo {
+      background: #1d2b38;
+      color: white;
+      padding: 8px 20px;
+      font-size: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* parte de baixo */
+    header {
+      background: white;
+      border-bottom: 1px solid #ccc;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 20px;
+    }
+
+    nav a {
+      margin: 0 10px;
+      color: #1d2b38;
+      text-decoration: none;
+    }
+
+    .botao {
+      background: #e50046;
+      color: white;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+
 body {
     font-family: 'Roboto', sans-serif;
     background-color: #f4f7f6;

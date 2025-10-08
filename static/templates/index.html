@@ -3,23 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Assistente Jurídico RAG</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <title>Assistente Documentos</title>
+   <link rel="stylesheet" href="C:\Users\paoll\OneDrive\DOCS\BPK\proj\projeto_busca_juridico\static\css\style.css">
 </head>
 <body>
+
+    <div class="topo">
+    <div> Fale Conosco | (xx) xxxx-xxx </div>
+    <div>
+      <button style="border:1px solid #e50046;background:none;color:white;padding:5px 10px;border-radius:15px;">Botão</button>
+      <a href="#" style="color:white;text-decoration:none;margin:0 10px;">Pesquisar documento</a>
+      <a href="#" style="color:white;text-decoration:none;">Perguntar sobre documento</a>
+    </div>
+  </div>
+
+  <header>
+    <img src="" height="40" alt="Logodocs">
+    <nav>
+      <a class= "titulos">Assistente Juridico | Busca de documentos</a>
+    </nav>
+    <button class="botao">Botão</button>
+  </header>
+    </div> 
     <div class="container">
         <header>
-            <h1>Assistente Jurídico com RAG</h1>
-            <p>Faça uma pergunta sobre os contratos carregados no sistema.</p>
+            <p>Faça uma pergunta sobre os documentos carregados no sistema.</p>
         </header>
 
         <main>
             <form action="/" method="POST">
-                <textarea name="question" rows="3" placeholder="Ex: Qual a cláusula de rescisão do contrato com a empresa X?">{{ question or '' }}</textarea>
+                <textarea name="question" rows="3" placeholder="Ex: Qual a cláusula de rescisão do contrato com a empresa X?"></textarea>
                 <button type="submit">Perguntar</button>
             </form>
-
-            {% if answer %}
             <div class="result">
                 <h2>Resposta</h2>
                 <div class="answer-box">
