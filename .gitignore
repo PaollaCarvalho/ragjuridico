@@ -1,0 +1,12 @@
+contratos/
+
+.env
+
+__pycache__/
+
+documentos/
+
+README.MD
+
+venv/
+

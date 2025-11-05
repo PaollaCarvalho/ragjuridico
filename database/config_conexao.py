@@ -1,0 +1,61 @@
+import mysql.connector
+from typing import List, Optional
+from mysql.connector import Error
+from dotenv import load_dotenv
+import os
+
+load_dotenv() 
+
+DB_CONFIG = {
+    'host': 'localhost',
+    'database': 'bsc_documentos',
+    'user': os.getenv('DB_USER'), 
+    'password': os.getenv('DB_PASSWORD'),
+    'charset': 'utf8mb4',
+    'collation': 'utf8mb4_unicode_ci'
+}
+
+ID_EMPRESA_BIOPARK = 1
+
+def conectar_banco():
+    try:
+        conexao = mysql.connector.connect(**DB_CONFIG)
+        if conexao.is_connected():
+            return conexao
+    except Error as e:
+        print(f"Erro ao conectar ao bd: {e}")
+        return None
+
+def executar_query(query: str, params: tuple = None) -> List[dict]:
+    """Executa query e retorna resultados como lista de dicts"""
+    conexao = conectar_banco()
+    if not conexao:
+        return []
+    
+    try:
+        cursor = conexao.cursor(dictionary=True)
+        cursor.execute(query, params or ())
+        resultados = cursor.fetchall()
+        cursor.close()
+        conexao.close()
+        return resultados
+    except Error as e:
+        print(f"Erro na query: {e}")
+        if conexao:
+            conexao.close()
+        return []
+
+def fechar_conexao(conexao, cursor=None):
+    if cursor:
+        cursor.close()
+    if conexao and conexao.is_connected():
+        conexao.close()
+        
+        
+if __name__ == "__main__":
+    conn = conectar_banco()
+    if conn:
+        print("Conexão ok!")
+        fechar_conexao(conn)
+    else:
+        print("Falha na conexão")
