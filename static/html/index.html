@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assistente Jurídico RAG - Documentos</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+        <div class="logo-container">
+            <div class="logo">
+                <div class="logo-icon">B</div>
+                <div class="logo-text">BIOPARK<br>Documentos</div>
+            </div>
+        </div>
+
+        <div class="user-info">
+            <div class="user-avatar">👤</div>
+            <div class="user-details">
+                <h3>Usuário</h3>
+                <p>Administrativo</p>
+            </div>
+        </div>
+
+        <nav class="nav-menu">
+            <a href="/static/index.html" class="nav-item active">
+                <span class="nav-icon">📄</span>
+                <span>Meus Documentos</span>
+            </a>
+            <a href="/busca-avancada" class="nav-item">
+                <span class="nav-icon">🔍</span>
+                <span>Busca Avançada</span>
+            </a>
+            <a href="#" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span>Relatórios</span>
+            </a>
+        </nav>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+        <div class="top-bar">
+            <h1 class="page-title">Sistema de Documentos Jurídicos</h1>
+        </div>
+
+        <div class="container">
+            <!-- BUSCA -->
+            <div class="step-box">
+                <h2>🔍 Buscar Documentos</h2>
+                <p>Digite o nome da empresa, representante, CPF ou CNPJ para encontrar documentos.</p>
+                
+                <div class="search-container">
+                    <input 
+                        type="text" 
+                        class="search-input" 
+                        id="searchInput"
+                        placeholder="Ex: João Silva, 3G INOVACAO, 123.456.789-00..."
+                    >
+                    <button class="btn-primary" onclick="buscarDocumentos()">
+                        Buscar
+                    </button>
+                </div>
+
+                <div class="filters-row">
+                    <div class="filter-group">
+                        <label>Tipo de Documento</label>
+                        <select class="filter-select" id="filterTipo">
+                            <option value="">Todos os tipos</option>
+                            <option value="contrato">Contrato de Empresa Associada</option>
+                            <option value="termo">Termo de Cessão</option>
+                            <option value="aditivo">Aditivo Contratual</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Data Início</label>
+                        <input type="date" class="filter-select" id="filterDataInicio">
+                    </div>
+
+                    <div class="filter-group">
+                        <label>Data Fim</label>
+                        <input type="date" class="filter-select" id="filterDataFim">
+                    </div>
+                </div>
+            </div>
+
+            <!-- LOADING -->
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p style="color: var(--text-light);">Buscando documentos...</p>
+            </div>
+
+            <!-- RESULTADOS -->
+            <div class="step-box" id="resultsSection" style="display: none;">
+                <div class="results-header">
+                    <h2 class="results-count" id="resultsCount">0 documentos encontrados</h2>
+                </div>
+                
+                <div class="results-grid" id="resultsGrid">
+                    <!-- Cards serão inseridos aqui -->
+                </div>
+
+                <div class="empty-state" id="emptyState" style="display: none;">
+                    <div class="empty-icon">📄</div>
+                    <p class="empty-text">Nenhum documento encontrado com os critérios informados</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL -->
+    <div class="modal" id="documentModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title" id="modalTitle">Documento</h3>
+                <button class="btn-close" onclick="fecharModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                <!-- O conteúdo do modal (incluindo o chat RAG) é injetado aqui -->
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

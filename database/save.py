@@ -2,7 +2,7 @@ from insercao import inserir_documento, inserir_cpf_cnpj, inserir_envolvido, ins
 from config_conexao import conectar_banco, fechar_conexao
 from typing import Dict, List, Optional
 from mysql.connector import Error
-from regex.main_extrc import processar_pdf
+from recon.main_extrc import processar_pdf
 
 
 def salvar_no_banco(resultado: Dict) -> bool:
