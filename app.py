@@ -1,11 +1,13 @@
 from fastapi import FastAPI, HTTPException, Query
-from database.models import Documento, EntidadeEmpresa, PrtEnvolvida, CpfCnpj 
-from database.config_conexao import DB_CONFIG, conectar_banco, fechar_conexao, executar_query
-from regex.main_extrc import processar_pdf
+from database.models import Documento
+from database.config_conexao import conectar_banco, executar_query
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict, Optional
 from pydantic import BaseModel
 from datetime import date, datetime
+from fastapi.responses import HTMLResponse  
+from fastapi.staticfiles import StaticFiles 
+from fastapi import FastAPI, HTTPException, Query, Request
 import os
 import uvicorn
 from services.db import buscar_documentos_mysql, agrupar_documentos
@@ -13,6 +15,20 @@ from services.fuzzy import calcular_score_fuzzy, extrair_termos_busca
 from src.rag_pipeline import RAGPipeline
 
 app = FastAPI()
+
+# Pressupõe que seu app.py está em 'rag-juridico/'
+# e seus arquivos estáticos em 'rag-juridico/static/'
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+
+# Caminho para o seu index.html
+# ATENÇÃO: Mova seu index.html para 'static/html/index.html'
+INDEX_HTML_PATH = os.path.join(STATIC_DIR, "html", "index.html")
+BUSCA_DIR = os.path.join(STATIC_DIR, "html", "busca-avancada.html")
+
+# Esta linha serve a pasta "static" na URL "/static"
+# É por isso que o <link href="/static/css/style.css"> funciona
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 class Envolvido(BaseModel):
     empresa: str
@@ -35,6 +51,10 @@ class BuscaResponse(BaseModel):
     total: int
     documentos: List[Documento]
     tempo_busca: float
+
+class PerguntaRAGRequest(BaseModel):
+    id_doc: int
+    pergunta: str
     
 
 # CORS (permite frontend acessar a API)
@@ -50,19 +70,36 @@ app.add_middleware(
 # ENDPOINTS
 # ============================================================================
 
-@app.get("/")
-def root():
-    """Endpoint raiz - informações da API"""
-    return {
-        "nome": "BIOPARK API - Documentos Jurídicos",
-        "versao": "1.0.0",
-        "status": "online",
-        "endpoints": [
-            "/buscar - Busca inteligente de documentos",
-            "/documento/{id} - Detalhes de um documento específico",
-            "/stats - Estatísticas do banco"
-        ]
-    }
+@app.get("/", response_class=HTMLResponse)
+async def get_frontend(request: Request):
+    """Serve o frontend (index.html)"""
+    try:
+        with open(INDEX_HTML_PATH, "r", encoding="utf-8") as f:
+            html_content = f.read()
+        return HTMLResponse(content=html_content, status_code=200)
+
+    except FileNotFoundError:
+        return HTMLResponse(
+            "<h1>Erro 500: Arquivo index.html não encontrado.</h1>"
+            f"<p>Verifique se ele existe em: {INDEX_HTML_PATH}</p>",
+            status_code=500
+        )
+    
+@app.get("/busca-avancada", response_class=HTMLResponse)
+async def get_busca_avancada():
+    """Serve a página de Busca Avançada"""
+    try:
+        # Tenta ler o arquivo renomeado
+        with open(BUSCA_DIR, "r", encoding="utf-8") as f:
+            html_content = f.read()
+        return HTMLResponse(content=html_content, status_code=200)
+    except FileNotFoundError:
+        # Fallback caso você não tenha renomeado ou movido o arquivo ainda
+        return HTMLResponse(
+            "<h1>Erro 404: Arquivo busca-avancada.html não encontrado.</h1>"
+            f"<p>Verifique se o arquivo existe em: {BUSCA_DIR}</p>",
+            status_code=404
+        )
 
 @app.get("/buscar", response_model=BuscaResponse)
 def buscar(
@@ -102,6 +139,18 @@ def buscar(
     
     # 3. Agrupa por documento
     documentos = agrupar_documentos(resultados_mysql)
+
+    doc_unico = {}
+
+    # 4. Calcula score fuzzy para cada documento
+    for doc in documentos:
+
+        identificador = doc['cpf_cnpj'][0]['cpf'] if doc['cpf_cnpj'] and doc['cpf_cnpj'][0].get('cpf') else doc['cpf_cnpj'][0]['cnpj']
+
+        if identificador not in doc_unico:
+            doc_unico[identificador] = doc
+
+    documentos = list(doc_unico.values())
     
     # 4. Calcula score fuzzy para cada documento
     for doc in documentos:
@@ -130,7 +179,7 @@ def buscar(
 
 @app.get("/stats")
 def estatisticas():
-    """Retorna estatísticas do banco de dados"""
+    """Retorna estatísticas do banco de dados + RAG"""
     
     stats = {}
     
@@ -152,6 +201,14 @@ def estatisticas():
     """
     result = executar_query(query_tipos)
     stats['tipos_documento'] = {row['tipo_doc']: row['quantidade'] for row in result}
+    
+    # ===== ADICIONE ESTAS LINHAS =====
+    # Estatísticas RAG
+    stats['rag'] = {
+        "pipeline_carregado": rag_pipeline is not None,
+        "documentos_processados": len(rag_cache),
+        "total_chunks": sum(info.get('chunks', 0) for info in rag_cache.values())
+    }
     
     return stats
 
@@ -176,8 +233,8 @@ rag_pipeline: Optional[RAGPipeline] = None
 
 def get_rag_pipeline():
     """
-    Retorna instância do RAG Pipeline.
-    Cria apenas na primeira vez que for chamado (lazy loading).
+        Retorna instância do RAG Pipeline.
+        Cria apenas na primeira vez que for chamado (lazy loading).
     """
     global rag_pipeline
     
@@ -258,53 +315,228 @@ async def processar_documento_rag(id_doc: int):
 
 
 @app.post("/rag/perguntar")
-async def perguntar_rag(
-    id_doc: int,
-    pergunta: str
-):
+async def perguntar_rag(request: PerguntaRAGRequest):
     """
     Faz pergunta ao RAG sobre documento específico.
     
-    Payload:
+    Payload JSON:
     {
         "id_doc": 1,
         "pergunta": "Qual o valor do contrato?"
     }
+    
+    Returns:
+        {
+            "resposta": "O valor do contrato é...",
+            "documento": "contrato_xyz.pdf",
+            "id_doc": 1,
+            "contexto": [...]
+        }
     """
     try:
         # 1. Verifica se documento foi processado
-        if id_doc not in rag_cache:
+        if request.id_doc not in rag_cache:
             # Processa automaticamente se necessário
-            result = await processar_documento_rag(id_doc)
+            result = await processar_documento_rag(request.id_doc)
             
-            if result['status'] == 'erro':
+            if result.get('status') == 'erro':
                 raise HTTPException(500, "Erro ao processar documento")
         
-        doc_info = rag_cache[id_doc]
+        doc_info = rag_cache[request.id_doc]
         document_id = doc_info['document_id']
 
         pipeline = get_rag_pipeline()
         
-        print(f"💬 Pergunta: '{pergunta}' para documento: {document_id}")
+        print(f"💬 Pergunta: '{request.pergunta}' para documento: {document_id}")
         
         # 2. Cria filtro Pinecone para buscar APENAS nesse documento
         filtro_pinecone = {"arquivo_origem": {"$eq": document_id}}
         
         # 3. Chama RAG
-        resposta, contexto = rag_pipeline.answer(pergunta, filter_metadata=filtro_pinecone)
+        resposta, contexto = pipeline.answer(request.pergunta, filter_metadata=filtro_pinecone)
         
-        print(f"✅ Resposta gerada")
+        print(f"✅ Resposta gerada: {resposta[:100]}...")
         
         return {
             "resposta": resposta,
             "documento": doc_info['arquivo'],
-            "id_doc": id_doc,
-            "contexto": contexto[:3]  # Top 3
+            "id_doc": request.id_doc,
+            "contexto": contexto[:3] if contexto else []  # Top 3 chunks
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Erro ao responder: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, f"Erro ao gerar resposta: {str(e)}")
+    
+@app.post("/rag/perguntar_geral")
+async def perguntar_rag_geral(
+    pergunta: str = Query(..., description="Pergunta a ser feita"),
+    limite_docs: int = Query(5, description="Número máximo de documentos a considerar")
+):
+    """
+    Faz pergunta buscando em TODOS os documentos indexados.
+    Útil para perguntas como "Quais contratos vencem este mês?"
+    
+    Query params:
+        pergunta: A pergunta a ser feita
+        limite_docs: Número máximo de documentos a considerar (padrão: 5)
+    
+    Returns:
+        {
+            "resposta": "...",
+            "documentos_utilizados": [...],
+            "total_documentos": 3
+        }
+    
+    Exemplo:
+        POST /rag/perguntar_geral?pergunta=Quais+contratos+da+3G&limite_docs=5
+    """
+    try:
+        pipeline = get_rag_pipeline()
+        
+        print(f"🔍 Busca geral: '{pergunta}'")
+        
+        # Busca SEM filtro (todos os documentos)
+        resposta, contexto = pipeline.answer(pergunta, filter_metadata=None, top_k=limite_docs*3)
+        
+        # Identifica quais documentos foram usados
+        documentos_usados = set()
+        for chunk in contexto[:limite_docs*3]:
+            if 'arquivo_origem' in chunk.get('metadata', {}):
+                doc_id = chunk['metadata']['arquivo_origem']
+                documentos_usados.add(doc_id)
+        
+        # Busca informações dos documentos usados
+        docs_info = []
+        for doc_id in list(documentos_usados)[:limite_docs]:
+            # Extrai ID numérico do formato "doc_123"
+            if doc_id.startswith("doc_"):
+                try:
+                    id_num = int(doc_id.split("_")[1])
+                    
+                    # Busca info no banco
+                    query = """
+                        SELECT 
+                            d.id_doc,
+                            d.nm_arquivo as nome_arquivo,
+                            d.tipo_doc,
+                            d.dt_ass as data_assinatura,
+                            e.empresa_assoc as empresa
+                        FROM documento d
+                        LEFT JOIN prt_envolvida e ON d.id_doc = e.id_doc
+                        WHERE d.id_doc = %s
+                        LIMIT 1
+                    """
+                    doc_data = executar_query(query, (id_num,))
+                    
+                    if doc_data:
+                        doc = doc_data[0]
+                        docs_info.append({
+                            "id_doc": doc["id_doc"],
+                            "nome_arquivo": doc["nome_arquivo"],
+                            "tipo_doc": doc["tipo_doc"],
+                            "data_assinatura": doc["data_assinatura"].isoformat() if doc.get("data_assinatura") else None,
+                            "empresa": doc.get("empresa", "N/A")
+                        })
+                except Exception as e:
+                    print(f"⚠️ Erro ao processar documento {doc_id}: {e}")
+                    continue
+        
+        print(f"✅ Resposta gerada usando {len(docs_info)} documento(s)")
+        
+        return {
+            "resposta": resposta,
+            "documentos_utilizados": docs_info,
+            "total_documentos": len(docs_info),
+            "contextos": len(contexto)
         }
         
     except Exception as e:
-        print(f"❌ Erro ao responder: {e}")
-        raise HTTPException(500, f"Erro ao gerar resposta: {str(e)}")
+        print(f"❌ Erro na busca geral: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, f"Erro ao processar busca geral: {str(e)}")
+    
+@app.get("/documento/{id_doc}")
+async def buscar_documento_por_id(id_doc: int):
+    """
+    Busca detalhes completos de um documento específico.
+    
+    Args:
+        id_doc: ID do documento
+        
+    Returns:
+        Objeto Documento com todos os detalhes
+    """
+    try:
+        # Query principal do documento
+        query_doc = """
+            SELECT 
+                d.id_doc,
+                d.nm_arquivo as nome_arquivo,
+                d.tipo_doc,
+                d.dt_ass as data_assinatura,
+                d.caminho_arquivo
+            FROM documento d
+            WHERE d.id_doc = %s
+        """
+        
+        docs = executar_query(query_doc, (id_doc,))
+        
+        if not docs:
+            raise HTTPException(status_code=404, detail="Documento não encontrado")
+        
+        doc = docs[0]
+        
+        # Busca envolvidos
+        query_envolvidos = """
+            SELECT empresa_assoc as empresa, titular as representante
+            FROM prt_envolvida
+            WHERE id_doc = %s
+        """
+        envolvidos = executar_query(query_envolvidos, (id_doc,))
+        
+        # Busca CPF/CNPJ
+        query_cpf_cnpj = """
+            SELECT CPF as cpf, CNPJ as cnpj
+            FROM cpf_cnpj
+            WHERE id_doc = %s
+        """
+        cpf_cnpj = executar_query(query_cpf_cnpj, (id_doc,))
+        
+        # Monta resposta
+        return {
+            "id_doc": doc["id_doc"],
+            "nome_arquivo": doc["nome_arquivo"],
+            "tipo_doc": doc["tipo_doc"],
+            "data_assinatura": doc["data_assinatura"].isoformat() if doc.get("data_assinatura") else None,
+            "caminho_arquivo": doc.get("caminho_arquivo"),
+            "envolvidos": [
+                {
+                    "empresa": e["empresa"],
+                    "representante": e["representante"]
+                }
+                for e in envolvidos
+            ],
+            "cpf_cnpj": [
+                {
+                    "cpf": c.get("cpf"),
+                    "cnpj": c.get("cnpj")
+                }
+                for c in cpf_cnpj
+            ]
+        }
+
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Erro ao buscar documento {id_doc}: {e}")
+        raise HTTPException(500, f"Erro ao buscar documento: {str(e)}")
     
 @app.get("/rag/status")
 async def status_rag():
@@ -324,7 +556,47 @@ async def status_rag():
         ]
     }
 
+@app.delete("/rag/cache/{id_doc}")
+async def limpar_cache_documento(id_doc: int):
+    """
+    Remove documento do cache RAG.
+    Útil para reprocessar um documento atualizado.
+    """
+    try:
+        if id_doc in rag_cache:
+            doc_info = rag_cache[id_doc]
+            del rag_cache[id_doc]
+            
+            return {
+                "status": "removido",
+                "documento": doc_info.get("arquivo", "N/A"),
+                "id_doc": id_doc
+            }
+        else:
+            raise HTTPException(404, "Documento não está em cache")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Erro ao limpar cache: {str(e)}")
 
+@app.delete("/rag/cache")
+async def limpar_cache_completo():
+    """
+    Limpa TODO o cache RAG.
+    Use com cuidado!
+    """
+    try:
+        total = len(rag_cache)
+        rag_cache.clear()
+        
+        return {
+            "status": "cache_limpo",
+            "documentos_removidos": total
+        }
+        
+    except Exception as e:
+        raise HTTPException(500, f"Erro ao limpar cache: {str(e)}")
 # EXECUTAR
 
 if __name__ == "__main__":

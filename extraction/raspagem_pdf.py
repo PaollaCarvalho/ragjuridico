@@ -1,9 +1,7 @@
 import fitz  # PyMuPDF
 import re as r
 import os
-import pandas as pd
-from typing import List, Dict, Optional
-from datetime import datetime
+from typing import List, Dict
 
 def ler_pgsdoc(caminho_pdf, paginas):
     try:
@@ -120,11 +118,11 @@ def extrair_envolvidos(caminho_pdf: str, empresas_arquivo: List[str]) -> List[Di
             # Permite match parcial das primeiras palavras-chave principais
             palavras_empresa = [p for p in empresa_normalizada.split() if len(p) > 2][:5]
             
-            if len(palavras_empresa) >= 2:
+            if len(palavras_empresa) >= 1:
                 # Verifica se pelo menos as 2-3 primeiras palavras aparecem na linha
-                match_palavras = sum(1 for p in palavras_empresa[:3] if p in linha_normalizada)
+                match_palavras = sum(1 for p in palavras_empresa if p in linha_normalizada)
                 
-                if match_palavras >= 2:  # Pelo menos 2 palavras batem
+                if match_palavras >= 1:  # Pelo menos 2 palavras batem
                     
                     # Procura nas próximas 5 linhas pelo representante
                     for j in range(1, 6):  # Aumentei para 5 linhas
@@ -133,25 +131,15 @@ def extrair_envolvidos(caminho_pdf: str, empresas_arquivo: List[str]) -> List[Di
                         
                         proxima_linha = linhas[i + j].strip()
                         
-                        # Pula linha vazia
                         if not proxima_linha or len(proxima_linha) < 5:
                             continue
-                        
-                        # Pula se for CPF/CNPJ (pode ter ºnº ou não)
                         if r.search(r'\d{2,3}[\.\s]?\d{3}[\.\s]?\d{3}[-/\s]?\d{2,4}[-\s]?\d{2}', proxima_linha):
                             continue
-                        
-                        # Pula se for a palavra "EMPRESA ASSOCIADA" ou similar
                         if r.search(r'\bEMPRESA\s+ASSOCIADA\b', proxima_linha.upper()):
                             continue
-                        
-                        # Pula se for "BIOPARK" ou variações
                         if any(bio in proxima_linha.upper() for bio in ['BIOPARK', 'PARQUE CIENTIFICO', 'BIOCIENCIAS']):
                             continue
                         
-                        # REGEX MELHORADO: aceita nomes com primeira letra maiúscula OU tudo minúsculo após primeira
-                        # Padrão: Nome Sobrenome ou Nome Sobrenome Sobrenome
-                        # Cada palavra: Primeira MAIÚSCULA + resto minúsculo/misto
                         match_nome = r.match(
                         r'^[A-ZÀÁÂÃÇÉÊÍÓÔÕÚ][a-zà-úçãõâêôáéíóú]+(?:\s+(?:[A-ZÀÁÂÃÇÉÊÍÓÔÕÚ][a-zà-úçãõâêôáéíóú]+|de|da|do|dos|das|e)){1,6}$',
                         proxima_linha
@@ -171,12 +159,11 @@ def extrair_envolvidos(caminho_pdf: str, empresas_arquivo: List[str]) -> List[Di
                                         'razao_social': empresa,
                                         'representante': proxima_linha
                                     })
-                                    break  # Encontrou representante
+                                    break  
                     
-                    break  # Encontrou a empresa, para de procurar
+                    break  
     
     return resultado
-
 
 
 def extrair_data(caminho_pdf):

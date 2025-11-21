@@ -33,7 +33,6 @@ def buscar_documentos_mysql(termos: List[str], tipo_doc: str = None,
     
     params = []
     
-    # Adiciona busca por termos (OR entre termos, AND entre campos)
     if termos:
         condicoes_termos = []
         for termo in termos:
@@ -49,12 +48,10 @@ def buscar_documentos_mysql(termos: List[str], tipo_doc: str = None,
         
         query += " AND (" + " OR ".join(condicoes_termos) + ")"
     
-    # Filtro por tipo
     if tipo_doc:
         query += " AND d.tipo_doc LIKE %s"
         params.append(f"%{tipo_doc}%")
     
-    # Filtro por data
     if data_inicio:
         query += " AND d.emissao_doc >= %s"
         params.append(data_inicio)

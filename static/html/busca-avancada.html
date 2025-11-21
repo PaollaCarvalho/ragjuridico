@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Busca Avançada - RAG</title>
+    <link rel="stylesheet" href="C:\Users\Usuario\Documents\DOCS\BPK\proj\projeto_busca_juridico\ragjuridico\static\css\style.css">
+    <style>
+        /* Estilos específicos da Busca Avançada */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #c0392b;
+            --primary-light: #e74c3c;
+            --secondary: #2c3e50;
+            --bg-light: #f5f6fa;
+            --bg-card: #ffffff;
+            --text-dark: #2c3e50;
+            --text-light: #7f8c8d;
+            --border: #e0e0e0;
+            --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            --focus-bg: #eaf6ff;
+            --focus-border: #aed6f1;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-light);
+            color: var(--text-dark);
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 250px;
+            height: 100vh;
+            background: white;
+            border-right: 1px solid var(--border);
+            padding: 20px 0;
+            z-index: 100;
+        }
+
+        .logo-container {
+            padding: 0 20px 30px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .logo-text {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-dark);
+        }
+
+        .user-info {
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .user-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: var(--bg-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+
+        .user-details h3 {
+            font-size: 0.95rem;
+            margin-bottom: 4px;
+        }
+
+        .user-details p {
+            font-size: 0.8rem;
+            color: var(--text-light);
+        }
+
+        .nav-menu {
+            padding: 10px 0;
+        }
+
+        .nav-item {
+            padding: 12px 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--text-dark);
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+
+        .nav-item:hover, .nav-item.active {
+            background: var(--focus-bg);
+            border-left: 3px solid var(--primary);
+        }
+
+        .nav-icon {
+            font-size: 1.2rem;
+        }
+
+        /* MAIN CONTENT */
+        .main-content {
+            margin-left: 250px;
+            min-height: 100vh;
+        }
+
+        .top-bar {
+            background: white;
+            padding: 20px 30px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .page-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-dark);
+        }
+
+        /* LAYOUT PRINCIPAL */
+        .busca-container {
+            display: flex;
+            height: calc(100vh - 80px);
+            background: var(--bg-light);
+        }
+
+        /* CHAT AREA (Principal) */
+        .chat-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 30px;
+        }
+
+        .chat-header {
+            background: white;
+            padding: 20px 25px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow);
+        }
+
+        .chat-header h2 {
+            color: var(--primary);
+            margin-bottom: 8px;
+            font-size: 1.3rem;
+        }
+
+        .chat-header p {
+            color: var(--text-light);
+            font-size: 0.95rem;
+        }
+
+        .chat-messages {
+            flex: 1;
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow);
+        }
+
+        .chat-input-container {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+        }
+
+        .chat-input-wrapper {
+            display: flex;
+            gap: 12px;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 14px 18px;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.95rem;
+            resize: none;
+            min-height: 60px;
+            max-height: 120px;
+            transition: all 0.3s;
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.1);
+        }
+
+        .btn-send {
+            padding: 14px 30px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            align-self: flex-end;
+        }
+
+        .btn-send:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(192, 57, 43, 0.3);
+        }
+
+        .btn-send:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* MENSAGENS */
+        .message {
+            margin-bottom: 20px;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message-user {
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .message-bot {
+            display: flex;
+            justify-content: flex-start;
+        }
+
+        .message-content {
+            max-width: 75%;
+            padding: 14px 18px;
+            border-radius: 12px;
+            line-height: 1.6;
+        }
+
+        .message-user .message-content {
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            color: white;
+        }
+
+        .message-bot .message-content {
+            background: var(--bg-light);
+            color: var(--text-dark);
+            border: 1px solid var(--border);
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .message-bot .message-header {
+            color: var(--text-light);
+        }
+
+        .message-user .message-header {
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .empty-chat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-light);
+        }
+
+        .empty-chat-icon {
+            font-size: 4rem;
+            margin-bottom: 15px;
+            opacity: 0.4;
+        }
+
+        /* SIDEBAR DIREITA - DOCUMENTOS */
+        .docs-sidebar {
+            width: 350px;
+            background: white;
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .docs-header {
+            padding: 25px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .docs-header h3 {
+            font-size: 1.1rem;
+            color: var(--text-dark);
+            margin-bottom: 8px;
+        }
+
+        .docs-header p {
+            font-size: 0.85rem;
+            color: var(--text-light);
+        }
+
+        .docs-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+
+        .doc-item {
+            background: var(--bg-light);
+            border: 2px solid transparent;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .doc-item:hover {
+            border-color: var(--primary);
+            background: white;
+            box-shadow: var(--shadow);
+        }
+
+        .doc-item.active {
+            border-color: var(--primary);
+            background: var(--focus-bg);
+        }
+
+        .doc-item-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .doc-item-icon {
+            width: 35px;
+            height: 35px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1rem;
+        }
+
+        .doc-item-title {
+            flex: 1;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-dark);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .doc-item-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-size: 0.8rem;
+            color: var(--text-light);
+        }
+
+        .doc-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            background: white;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .no-docs {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-light);
+        }
+
+        .no-docs-icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            opacity: 0.3;
+        }
+
+        /* LOADING */
+        .loading-dots {
+            display: inline-flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .loading-dots span {
+            width: 8px;
+            height: 8px;
+            background: currentColor;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+
+        .loading-dots span:nth-child(1) { animation-delay: -0.32s; }
+        .loading-dots span:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+
+        /* SCROLLBAR */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-light);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-light);
+        }
+    </style>
+</head>
+<body>
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+        <div class="logo-container">
+            <div class="logo">
+                <div class="logo-icon">B</div>
+                <div class="logo-text">BIOPARK<br>Documentos</div>
+            </div>
+        </div>
+
+        <div class="user-info">
+            <div class="user-avatar">👤</div>
+            <div class="user-details">
+                <h3>Usuário</h3>
+                <p>Administrativo</p>
+            </div>
+        </div>
+
+        <nav class="nav-menu">
+            <a href="C:\Users\Usuario\Documents\DOCS\BPK\proj\projeto_busca_juridico\ragjuridico\static\html\index.html" class="nav-item">
+                <span class="nav-icon">📄</span>
+                <span>Meus Documentos</span>
+            </a>
+    
+            <a href="C:\Users\Usuario\Documents\DOCS\BPK\proj\projeto_busca_juridico\ragjuridico\static\html\busca-avancada.html" class="nav-item active">
+                <span class="nav-icon">🔍</span>
+                <span>Busca Avançada</span>
+            </a>
+            </nav>
+            <a href="#" class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span>Relatórios</span>
+            </a>
+        </nav>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+        <div class="top-bar">
+            <h1 class="page-title">Busca Avançada - Assistente Inteligente</h1>
+        </div>
+
+        <div class="busca-container">
+            <!-- ÁREA DE CHAT PRINCIPAL -->
+            <div class="chat-section">
+                <div class="chat-header">
+                    <h2>🤖 Assistente Jurídico RAG</h2>
+                    <p>Faça perguntas sobre seus documentos e receba respostas baseadas no conteúdo real</p>
+                </div>
+
+                <div class="chat-messages" id="chatMessages">
+                    <div class="empty-chat">
+                        <div class="empty-chat-icon">💬</div>
+                        <p>Faça uma pergunta para começar a conversa</p>
+                        <p style="font-size: 0.85rem; margin-top: 8px;">
+                            Ex: "Quais contratos vencem este mês?"
+                        </p>
+                    </div>
+                </div>
+
+                <div class="chat-input-container">
+                    <div class="chat-input-wrapper">
+                        <textarea 
+                            id="chatInput"
+                            class="chat-input"
+                            placeholder="Digite sua pergunta sobre os documentos..."
+                            onkeydown="handleKeyPress(event)"
+                        ></textarea>
+                        <button class="btn-send" id="btnSend" onclick="enviarPergunta()">
+                            Enviar 📤
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SIDEBAR DIREITA - DOCUMENTOS CONSULTADOS -->
+            <div class="docs-sidebar">
+                <div class="docs-header">
+                    <h3>📚 Documentos Consultados</h3>
+                    <p>Fontes usadas nas respostas</p>
+                </div>
+
+                <div class="docs-list" id="docsList">
+                    <div class="no-docs">
+                        <div class="no-docs-icon">📁</div>
+                        <p>Nenhum documento consultado ainda</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000';
+        let documentosConsultados = new Set();
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                enviarPergunta();
+            }
+        }
+
+        async function enviarPergunta() {
+            const input = document.getElementById('chatInput');
+            const pergunta = input.value.trim();
+            
+            if (!pergunta) return;
+            
+            // Limpa input
+            input.value = '';
+            
+            // Adiciona mensagem do usuário
+            adicionarMensagem('user', pergunta);
+            
+            // Desabilita botão
+            const btnSend = document.getElementById('btnSend');
+            btnSend.disabled = true;
+            btnSend.innerHTML = 'Processando...';
+            
+            // Adiciona mensagem de loading
+            adicionarMensagemLoading();
+            
+            try {
+                // ETAPA 1: Busca documentos relevantes
+                const buscaResponse = await fetch(`${API_BASE_URL}/buscar?q=${encodeURIComponent(pergunta)}&limite=5`);
+                const buscaData = await buscaResponse.json();
+                
+                if (!buscaData.documentos || buscaData.documentos.length === 0) {
+                    removerUltimaMensagem();
+                    adicionarMensagem('bot', '❌ Não encontrei documentos relacionados à sua pergunta. Tente reformular ou use termos diferentes.');
+                    return;
+                }
+                
+                // Atualiza documentos consultados
+                atualizarDocumentosConsultados(buscaData.documentos);
+                
+                // ETAPA 2: Processa o primeiro documento e faz a pergunta RAG
+                const docId = buscaData.documentos[0].id_doc;
+                
+                // Processa documento (se necessário)
+                await fetch(`${API_BASE_URL}/rag/processar/${docId}`, {
+                    method: 'POST'
+                });
+                
+                // Faz a pergunta RAG
+                const ragResponse = await fetch(`${API_BASE_URL}/rag/perguntar`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        id_doc: docId,
+                        pergunta: pergunta
+                    })
+                });
+                
+                const ragData = await ragResponse.json();
+                
+                // Remove loading
+                removerUltimaMensagem();
+                
+                // Adiciona resposta com contexto
+                const resposta = `📄 **Documento consultado:** ${buscaData.documentos[0].envolvidos[0]?.empresa || 'N/A'}\n\n${ragData.resposta}`;
+                adicionarMensagem('bot', resposta);
+                
+                // Sugere mais documentos se houver
+                if (buscaData.documentos.length > 1) {
+                    setTimeout(() => {
+                        adicionarMensagem('bot', `💡 Encontrei mais ${buscaData.documentos.length - 1} documento(s) relacionado(s). Quer que eu consulte outros?`);
+                    }, 500);
+                }
+                
+            } catch (error) {
+                console.error('Erro:', error);
+                removerUltimaMensagem();
+                adicionarMensagem('bot', '❌ Erro ao processar pergunta. Detalhes: ' + error.message);
+            } finally {
+                // Reabilita botão
+                btnSend.disabled = false;
+                btnSend.innerHTML = 'Enviar 📤';
+            }
+        }
+
+        function adicionarMensagem(tipo, texto) {
+            const chatMessages = document.getElementById('chatMessages');
+            
+            // Remove empty state
+            const emptyChat = chatMessages.querySelector('.empty-chat');
+            if (emptyChat) emptyChat.remove();
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message message-${tipo}`;
+            
+            const icon = tipo === 'user' ? '👤' : '🤖';
+            const label = tipo === 'user' ? 'Você' : 'Assistente';
+            
+            // Formata texto com quebras de linha e negrito
+            const textoFormatado = texto
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\n/g, '<br>');
+            
+            messageDiv.innerHTML = `
+                <div class="message-content">
+                    <div class="message-header">
+                        ${icon} ${label}
+                    </div>
+                    <div>${textoFormatado}</div>
+                </div>
+            `;
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function adicionarMensagemLoading() {
+            const chatMessages = document.getElementById('chatMessages');
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message message-bot';
+            messageDiv.id = 'loadingMessage';
+            
+            messageDiv.innerHTML = `
+                <div class="message-content">
+                    <div class="message-header">
+                        🤖 Assistente
+                    </div>
+                    <div class="loading-dots">
+                        Pensando
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                </div>
+            `;
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function removerUltimaMensagem() {
+            const loadingMsg = document.getElementById('loadingMessage');
+            if (loadingMsg) loadingMsg.remove();
+        }
+
+        function atualizarDocumentosConsultados(documentos) {
+            const docsList = document.getElementById('docsList');
+            
+            // Remove "no docs" message
+            const noDocs = docsList.querySelector('.no-docs');
+            if (noDocs) noDocs.remove();
+            
+            documentos.forEach(doc => {
+                if (!documentosConsultados.has(doc.id_doc)) {
+                    documentosConsultados.add(doc.id_doc);
+                    
+                    const docItem = document.createElement('div');
+                    docItem.className = 'doc-item';
+                    docItem.onclick = () => abrirDocumento(doc.id_doc);
+                    
+                    // Pega primeiro envolvido
+                    const envolvido = doc.envolvidos && doc.envolvidos[0] 
+                        ? doc.envolvidos[0] 
+                        : { empresa: 'N/A' };
+                    
+                    // Formata data
+                    const data = doc.data_assinatura 
+                        ? new Date(doc.data_assinatura).toLocaleDateString('pt-BR')
+                        : 'N/A';
+                    
+                    docItem.innerHTML = `
+                        <div class="doc-item-header">
+                            <div class="doc-item-icon">📄</div>
+                            <div class="doc-item-title" title="${doc.nome_arquivo || 'Documento'}">
+                                ${doc.nome_arquivo || 'Documento'}
+                            </div>
+                        </div>
+                        <div class="doc-item-meta">
+                            <span class="doc-badge">${doc.tipo_doc || 'Documento'}</span>
+                            <div>📅 ${data}</div>
+                            <div>🏢 ${envolvido.empresa}</div>
+                            ${doc.score_relevancia ? `<div>⭐ ${doc.score_relevancia.toFixed(1)}% relevante</div>` : ''}
+                        </div>
+                    `;
+                    
+                    docsList.insertBefore(docItem, docsList.firstChild);
+                }
+            });
+        }
+
+        function abrirDocumento(id) {
+            // Redireciona para página de documentos com o documento aberto
+            window.location.href = `/static/index.html?doc=${id}`;
+        }
+
+        // Carrega estado inicial
+        window.addEventListener('load', async () => {
+            console.log('🚀 Busca Avançada carregada!');
+            
+            // Verifica se API está online
+            try {
+                const response = await fetch(`${API_BASE_URL}/health`);
+                const health = await response.json();
+                console.log('✅ API Status:', health);
+            } catch (error) {
+                console.warn('⚠️ API não está respondendo');
+                adicionarMensagem('bot', '⚠️ Aviso: A API não está respondendo. Verifique se está rodando em ' + API_BASE_URL);
+            }
+        });
+    </script>
+</body>
+</html>

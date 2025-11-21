@@ -52,10 +52,3 @@ def fechar_conexao(conexao, cursor=None):
         conexao.close()
         
         
-if __name__ == "__main__":
-    conn = conectar_banco()
-    if conn:
-        print("Conexão ok!")
-        fechar_conexao(conn)
-    else:
-        print("Falha na conexão")

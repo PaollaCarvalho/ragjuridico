@@ -1,21 +1,12 @@
-from typing import Dict, List, Optional
-from config_conexao import ID_EMPRESA_BIOPARK
+from typing import Dict, Optional
+from config_conexao import ID_EMPRESA_BIOPARK, conectar_banco, fechar_conexao
 from mysql.connector import Error
 
 
 def inserir_documento(conexao, dados: Dict) -> Optional[int]:
     try:
         cursor = conexao.cursor()
-        
-        emissao_doc = None
-        if dados.get('emissao_doc'):
-            try:
-                from datetime import datetime
-                emissao_doc = datetime.strptime(dados['emissao_doc'], '%Y-%m-%d').date()
-            except (ValueError, TypeError) as e:
-                print(f"⚠️  Data inválida, salvando como NULL: {dados.get('emissao_doc')}")
-                emissao_doc = None
-        
+            
         query = """
             INSERT INTO documento (nm_arquivo, emissao_doc, tipo_doc, id_empresa)
             VALUES (%s, %s, %s, %s)
@@ -23,7 +14,7 @@ def inserir_documento(conexao, dados: Dict) -> Optional[int]:
         
         valores = (
             dados['nm_arquivo'],
-            emissao_doc,  
+            dados['dt_cntr'] if dados['dt_cntr'] else None,  
             dados['tipo_doc'],
             ID_EMPRESA_BIOPARK
         )
@@ -59,16 +50,16 @@ def inserir_envolvido(conexao, razao_social: str, representante: str) -> Optiona
         return None
 
 
-def inserir_cpf_cnpj(conexao, cpf: Optional[str], cnpj: Optional[str]) -> Optional[int]:
+def inserir_cpf_cnpj(conexao, cpf: Optional[str], cnpj: Optional[str], cpf2: None, cnpj2: None) -> Optional[int]:
     try:
         cursor = conexao.cursor()
         
         query = """
-            INSERT INTO cpf_cnpj (CPF, CNPJ)
-            VALUES (%s, %s)
+            INSERT INTO cpf_cnpj (CPF, CNPJ, CPF2, CNPJ2)
+            VALUES (%s, %s, %s, %s)
         """
         
-        cursor.execute(query, (cpf, cnpj))
+        cursor.execute(query, (cpf, cnpj, cpf2, cnpj2))
         id_pjpf = cursor.lastrowid
         cursor.close()
         

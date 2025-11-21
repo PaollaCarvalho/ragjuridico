@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Assistente Jurídico RAG - Duas Etapas</title>
-    <link rel="stylesheet" href="C:\Users\Usuario\Documents\myperson\proj\ragjuridico\static\css\style.css">
+    <title>Assistente Jurídico RAG - Documentos</title>
+    <link rel="stylesheet" href="C:\Users\Usuario\Documents\DOCS\BPK\proj\projeto_busca_juridico\ragjuridico\static\css\style.css">
 </head>
 <body>
     <!-- SIDEBAR -->
@@ -25,11 +25,11 @@
         </div>
 
         <nav class="nav-menu">
-            <a href="#" class="nav-item active">
+            <a href="C:\Users\Usuario\Documents\DOCS\BPK\proj\projeto_busca_juridico\ragjuridico\static\html\index.html" class="nav-item active">
                 <span class="nav-icon">📄</span>
                 <span>Meus Documentos</span>
             </a>
-            <a href="#" class="nav-item">
+            <a href="C:\Users\Usuario\Documents\DOCS\BPK\proj\projeto_busca_juridico\ragjuridico\static\html\busca-avancada.html" class="nav-item">
                 <span class="nav-icon">🔍</span>
                 <span>Busca Avançada</span>
             </a>
@@ -116,15 +116,14 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3 class="modal-title" id="modalTitle">Documento</h3>
-                <button class="btn-close" onclick="fecharModal()">×</button>
+                <button class="btn-close" onclick="fecharModal()">&times;</button>
             </div>
             <div class="modal-body" id="modalBody">
-                <iframe id="pdfViewer" style="width: 100%; height: 100%; border: none;"></iframe>
+                <!-- O conteúdo do modal (incluindo o chat RAG) é injetado aqui -->
             </div>
         </div>
     </div>
 
-    <script src="C:\Users\Usuario\Documents\myperson\proj\ragjuridico\static\js\app.js"></script>
-    
+    <script src="C:\Users\Usuario\Documents\DOCS\BPK\proj\projeto_busca_juridico\ragjuridico\static\js\app.js"></script>
 </body>
 </html>

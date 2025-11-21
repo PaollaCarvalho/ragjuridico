@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, Date
-from typing import List
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
+
 
 Base = declarative_base()
 
@@ -21,7 +21,6 @@ class Documento(Base):
     id_doc = Column(Integer, primary_key=True, index=True)
     id_empresa = Column(Integer, ForeignKey("entidade_empresa.id_empresa"))
     nm_arquivo = Column(String(100), nullable=False)
-    nr_lote = Column(Integer)
     emissao_doc = Column(Date)
     tipo_doc = Column(String(100))
 
@@ -33,12 +32,20 @@ class PrtEnvolvida(Base):
     empresa_assoc = Column(String(100))
     titular = Column(String(100))
 
+class caminho(Base):
+    __tablename__ = 'caminho'
+
+    id_caminho = Column(Integer, primary_key=True, index=True)
+    caminho = Column(String(255), nullable=False)
+
 class CpfCnpj(Base):
     __tablename__ = 'cpf_cnpj'
 
     id_pjpf = Column(Integer, primary_key=True, index=True)
     CPF = Column(String(50))
     CNPJ = Column(String(50))
+    CPF2 = Column(String(50))
+    CNPJ2 = Column(String(50))
 
 class DocPrtEnvolvida(Base):
     __tablename__ = 'doc_prt_envolvida'
