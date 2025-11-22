@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BIOPARK Documentos v2</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #000A1F, #002F5E, #002F5E);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Efeito de partículas/círculos decorativos */
+        body::before {
+            content: '';
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(230, 57, 70, 0.15) 0%, transparent 70%);
+            border-radius: 50%;
+            top: -200px;
+            right: -100px;
+            animation: float 20s infinite ease-in-out;
+        }
+
+        body::after {
+            content: '';
+            position: absolute;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(0, 52, 101, 0.2) 0%, transparent 70%);
+            border-radius: 50%;
+            bottom: -150px;
+            left: -100px;
+            animation: float 15s infinite ease-in-out reverse;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(50px, 50px); }
+        }
+
+        .login-container {
+            background: rgba(255, 255, 255, 0.10);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(18px);
+            border-radius: 24px;
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            max-width: 1100px;
+            width: 100%;
+            display: flex;
+            min-height: 600px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* LADO ESQUERDO - BRANDING */
+        .login-left {
+            flex: 1;
+            padding: 60px 50px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            position: relative;
+            background: rgba(230, 57, 70, 0.08);
+            border-right: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .logo-container {
+            text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .logo {
+            width: 90px;
+            height: 90px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+            font-size: 42px;
+            font-weight: bold;
+            color: #e63946;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+        }
+
+        .logo-text {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            letter-spacing: 1px;
+        }
+
+        .logo-subtitle {
+            font-size: 20px;
+            opacity: 0.95;
+            margin-bottom: 40px;
+            font-weight: 300;
+        }
+
+        .welcome-text {
+            font-size: 16px;
+            line-height: 1.7;
+            opacity: 0.9;
+            text-align: center;
+            max-width: 300px;
+        }
+
+        .illustration {
+            margin-top: 40px;
+            max-width: 80%;
+            opacity: 0.9;
+        }
+
+        /* LADO DIREITO - FORMULÁRIO */
+        .login-right {
+            flex: 1;
+            padding: 60px 50px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            background: white; 
+        }
+
+        .login-header {
+            margin-bottom: 35px;
+        }
+
+        .login-title {
+            font-size: 30px;
+            color: #2c3e50; 
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .login-subtitle {
+            color: #7f8c8d; 
+            font-size: 15px;
+            font-weight: 300;
+        }
+
+        .form-group {
+            margin-bottom: 22px;
+            text-align: left;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            color: #2c3e50; 
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e0e6ed; 
+            border-radius: 10px;
+            font-size: 15px;
+            background: white; 
+            color: #2c3e50; 
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        .form-input::placeholder {
+            color: #95a5a6; 
+        }
+
+        .form-input:focus {
+            border-color: #e63946; 
+            background: white;
+            box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.1);
+        }
+
+        .form-options {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            font-size: 14px;
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #7f8c8d; 
+        }
+
+        .checkbox-container input {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            accent-color: #e63946;
+        }
+
+        .forgot-password {
+            color: #e63946; 
+            text-decoration: none;
+            font-weight: 500; 
+            transition: color 0.3s;
+        }
+
+        .forgot-password:hover {
+            color: #d62828; 
+            text-decoration: underline;
+        }
+
+        /* BOTÃO PRINCIPAL */
+        .btn-login {
+            width: 100%;
+            margin-top: 12px;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            background: linear-gradient(90deg, #e63946, #d62828);
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(230, 57, 70, 0.3);
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(230, 57, 70, 0.4);
+        }
+
+        .btn-login:active {
+            transform: translateY(0);
+        }
+
+        /* BOTÃO INSTITUCIONAL - GLASSMORPHISM */
+        .btn-institucional {
+            width: 100%;
+            margin-top: 18px;
+            padding: 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            background: #fff5f0;
+            border: 1px solid #ff9d7a;
+            color: #d15d2c;
+            font-size: 15px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .btn-institucional:hover {
+            background: #ffe8d9;
+            border-color: #ff8554;
+            transform: translateY(-1px);
+        }
+
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <!-- LADO ESQUERDO - BRANDING -->
+        <div class="login-left">
+            <div class="logo-container">
+                <div class="logo">B</div>
+                <div class="logo-text">BIOPARK</div>
+                <div class="logo-subtitle">Documentos</div>
+                <p class="welcome-text">
+                    Sistema de Gestão de<br>Documentos Jurídicos
+                </p>
+            </div>
+        </div>
+
+        <!-- LADO DIREITO - FORMULÁRIO -->
+        <div class="login-right">
+            <div class="login-header">
+                <h1 class="login-title">Bem-vindo de volta!</h1>
+                <p class="login-subtitle">Login para acessar o sistema</p>
+            </div>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label class="form-label" for="email">Email</label>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        class="form-input" 
+                        placeholder="seuemail@bpkedu.com"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="password">Senha</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        class="form-input" 
+                        placeholder="•••••••"
+                        required
+                    >
+                </div>
+
+                <div class="form-options">
+                    <label class="checkbox-container">
+                        <input type="checkbox" id="remember">
+                        <span>Lembrar-me</span>
+                    </label>
+                    <a href="#" class="forgot-password">Esqueci minha senha</a>
+                </div>
+
+                <button type="submit" class="btn-login">Entrar</button>
+
+                <button type="button" class="btn-institucional">
+                    Entrar com e-mail institucional Biopark
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            if (email && password) {
+                alert('Login realizado com sucesso!\n\nEmail: ' + email);
+                // Aqui você adicionaria a lógica real de autenticação
+            }
+        });
+
+        // Funcionalidade do botão institucional
+        document.querySelector('.btn-institucional').addEventListener('click', function() {
+            alert('Redirecionando para login institucional Biopark...');
+            // Aqui você pode redirecionar para a página de SSO ou OAuth
+        });
+    </script>
+</body>
+</html>

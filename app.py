@@ -37,6 +37,8 @@ class Envolvido(BaseModel):
 class CPF_CNPJ(BaseModel):
     cpf: Optional[str] = None
     cnpj: Optional[str] = None
+    cpf2: Optional[str] = None  # p caso com + de 1 cpf ou cnpj
+    cnpj2: Optional[str] = None  
 
 class Documento(BaseModel):
     id_doc: int
@@ -135,38 +137,42 @@ def buscar(
         )
     
     # 2. Busca no MySQL (palavras-chave)
-    resultados_mysql = buscar_documentos_mysql(termos, tipo, data_inicio, data_fim)
+    resultados_mysql = buscar_documentos_mysql(tipo, data_inicio, data_fim)
     
     # 3. Agrupa por documento
     documentos = agrupar_documentos(resultados_mysql)
 
     doc_unico = {}
 
-    # 4. Calcula score fuzzy para cada documento
     for doc in documentos:
+        
+        cpfs = [item['cpf'] for item in doc['cpf_cnpj'] if item.get('cpf')]
+        cnpjs = [item['cnpj'] for item in doc['cpf_cnpj'] if item.get('cnpj')]
 
-        identificador = doc['cpf_cnpj'][0]['cpf'] if doc['cpf_cnpj'] and doc['cpf_cnpj'][0].get('cpf') else doc['cpf_cnpj'][0]['cnpj']
+        identificador = cpfs[0] if cpfs else (cnpjs[0] if cnpjs else None)
 
-        if identificador not in doc_unico:
+        if identificador and identificador not in doc_unico:
             doc_unico[identificador] = doc
 
     documentos = list(doc_unico.values())
     
-    # 4. Calcula score fuzzy para cada documento
+    # score fuzzy 
     for doc in documentos:
-        # Cria dict temporário para calcular score
+        todos_cpfs = " ".join([item['cpf'] for item in doc['cpf_cnpj'] if item.get('cpf')])
+        todos_cnpjs = " ".join([item['cnpj'] for item in doc['cpf_cnpj'] if item.get('cnpj')])
+
         temp_dict = {
-            'empresa_assoc': doc['envolvidos'][0]['empresa'] if doc['envolvidos'] else '',
-            'titular': doc['envolvidos'][0]['representante'] if doc['envolvidos'] else '',
-            'CPF': doc['cpf_cnpj'][0]['cpf'] if doc['cpf_cnpj'] and doc['cpf_cnpj'][0]['cpf'] else '',
-            'CNPJ': doc['cpf_cnpj'][0]['cnpj'] if doc['cpf_cnpj'] and doc['cpf_cnpj'][0]['cnpj'] else ''
+        'empresa_assoc': doc['envolvidos'][0]['empresa'] if doc['envolvidos'] else '',
+        'titular': doc['envolvidos'][0]['representante'] if doc['envolvidos'] else '',
+        'CPF': todos_cpfs,
+        'CNPJ': todos_cnpjs
         }
         doc['score_relevancia'] = calcular_score_fuzzy(q, temp_dict)
     
-    # 5. Ordena por relevância (score fuzzy)
+    #  ordena por relevância (score fuzzy)
     documentos.sort(key=lambda x: x['score_relevancia'], reverse=True)
     
-    # 6. Limita resultados
+    # limit
     documentos = documentos[:limite]
     
     tempo_total = round(time.time() - inicio, 3)
@@ -202,7 +208,6 @@ def estatisticas():
     result = executar_query(query_tipos)
     stats['tipos_documento'] = {row['tipo_doc']: row['quantidade'] for row in result}
     
-    # ===== ADICIONE ESTAS LINHAS =====
     # Estatísticas RAG
     stats['rag'] = {
         "pipeline_carregado": rag_pipeline is not None,
@@ -460,83 +465,6 @@ async def perguntar_rag_geral(
         import traceback
         traceback.print_exc()
         raise HTTPException(500, f"Erro ao processar busca geral: {str(e)}")
-    
-@app.get("/documento/{id_doc}")
-async def buscar_documento_por_id(id_doc: int):
-    """
-    Busca detalhes completos de um documento específico.
-    
-    Args:
-        id_doc: ID do documento
-        
-    Returns:
-        Objeto Documento com todos os detalhes
-    """
-    try:
-        # Query principal do documento
-        query_doc = """
-            SELECT 
-                d.id_doc,
-                d.nm_arquivo as nome_arquivo,
-                d.tipo_doc,
-                d.dt_ass as data_assinatura,
-                d.caminho_arquivo
-            FROM documento d
-            WHERE d.id_doc = %s
-        """
-        
-        docs = executar_query(query_doc, (id_doc,))
-        
-        if not docs:
-            raise HTTPException(status_code=404, detail="Documento não encontrado")
-        
-        doc = docs[0]
-        
-        # Busca envolvidos
-        query_envolvidos = """
-            SELECT empresa_assoc as empresa, titular as representante
-            FROM prt_envolvida
-            WHERE id_doc = %s
-        """
-        envolvidos = executar_query(query_envolvidos, (id_doc,))
-        
-        # Busca CPF/CNPJ
-        query_cpf_cnpj = """
-            SELECT CPF as cpf, CNPJ as cnpj
-            FROM cpf_cnpj
-            WHERE id_doc = %s
-        """
-        cpf_cnpj = executar_query(query_cpf_cnpj, (id_doc,))
-        
-        # Monta resposta
-        return {
-            "id_doc": doc["id_doc"],
-            "nome_arquivo": doc["nome_arquivo"],
-            "tipo_doc": doc["tipo_doc"],
-            "data_assinatura": doc["data_assinatura"].isoformat() if doc.get("data_assinatura") else None,
-            "caminho_arquivo": doc.get("caminho_arquivo"),
-            "envolvidos": [
-                {
-                    "empresa": e["empresa"],
-                    "representante": e["representante"]
-                }
-                for e in envolvidos
-            ],
-            "cpf_cnpj": [
-                {
-                    "cpf": c.get("cpf"),
-                    "cnpj": c.get("cnpj")
-                }
-                for c in cpf_cnpj
-            ]
-        }
-
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"❌ Erro ao buscar documento {id_doc}: {e}")
-        raise HTTPException(500, f"Erro ao buscar documento: {str(e)}")
     
 @app.get("/rag/status")
 async def status_rag():
