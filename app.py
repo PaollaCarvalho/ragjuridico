@@ -1,7 +1,12 @@
 from fastapi import FastAPI, HTTPException, Query
+<<<<<<< HEAD
 from database.models import Documento, EntidadeEmpresa, PrtEnvolvida, CpfCnpj 
 from database.config_conexao import DB_CONFIG, conectar_banco, fechar_conexao, executar_query
 from recon.main_extrc import processar_pdf
+=======
+from database.models import Documento
+from database.config_conexao import conectar_banco, executar_query
+>>>>>>> 956673175342fd5f3b4874e600070ee10c9aef7c
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict, Optional
 from pydantic import BaseModel
@@ -38,6 +43,8 @@ class Envolvido(BaseModel):
 class CPF_CNPJ(BaseModel):
     cpf: Optional[str] = None
     cnpj: Optional[str] = None
+    cpf2: Optional[str] = None  # p caso com + de 1 cpf ou cnpj
+    cnpj2: Optional[str] = None  
 
 class Documento(BaseModel):
     id_doc: int
@@ -136,26 +143,42 @@ def buscar(
         )
     
     # 2. Busca no MySQL (palavras-chave)
-    resultados_mysql = buscar_documentos_mysql(termos, tipo, data_inicio, data_fim)
+    resultados_mysql = buscar_documentos_mysql(tipo, data_inicio, data_fim)
     
     # 3. Agrupa por documento
     documentos = agrupar_documentos(resultados_mysql)
-    
-    # 4. Calcula score fuzzy para cada documento
+
+    doc_unico = {}
+
     for doc in documentos:
-        # Cria dict temporário para calcular score
+        
+        cpfs = [item['cpf'] for item in doc['cpf_cnpj'] if item.get('cpf')]
+        cnpjs = [item['cnpj'] for item in doc['cpf_cnpj'] if item.get('cnpj')]
+
+        identificador = cpfs[0] if cpfs else (cnpjs[0] if cnpjs else None)
+
+        if identificador and identificador not in doc_unico:
+            doc_unico[identificador] = doc
+
+    documentos = list(doc_unico.values())
+    
+    # score fuzzy 
+    for doc in documentos:
+        todos_cpfs = " ".join([item['cpf'] for item in doc['cpf_cnpj'] if item.get('cpf')])
+        todos_cnpjs = " ".join([item['cnpj'] for item in doc['cpf_cnpj'] if item.get('cnpj')])
+
         temp_dict = {
-            'empresa_assoc': doc['envolvidos'][0]['empresa'] if doc['envolvidos'] else '',
-            'titular': doc['envolvidos'][0]['representante'] if doc['envolvidos'] else '',
-            'CPF': doc['cpf_cnpj'][0]['cpf'] if doc['cpf_cnpj'] and doc['cpf_cnpj'][0]['cpf'] else '',
-            'CNPJ': doc['cpf_cnpj'][0]['cnpj'] if doc['cpf_cnpj'] and doc['cpf_cnpj'][0]['cnpj'] else ''
+        'empresa_assoc': doc['envolvidos'][0]['empresa'] if doc['envolvidos'] else '',
+        'titular': doc['envolvidos'][0]['representante'] if doc['envolvidos'] else '',
+        'CPF': todos_cpfs,
+        'CNPJ': todos_cnpjs
         }
         doc['score_relevancia'] = calcular_score_fuzzy(q, temp_dict)
     
-    # 5. Ordena por relevância (score fuzzy)
+    #  ordena por relevância (score fuzzy)
     documentos.sort(key=lambda x: x['score_relevancia'], reverse=True)
     
-    # 6. Limita resultados
+    # limit
     documentos = documentos[:limite]
     
     tempo_total = round(time.time() - inicio, 3)
@@ -191,7 +214,10 @@ def estatisticas():
     result = executar_query(query_tipos)
     stats['tipos_documento'] = {row['tipo_doc']: row['quantidade'] for row in result}
     
+<<<<<<< HEAD
     # ===== ADICIONE ESTAS LINHAS =====
+=======
+>>>>>>> 956673175342fd5f3b4874e600070ee10c9aef7c
     # Estatísticas RAG
     stats['rag'] = {
         "pipeline_carregado": rag_pipeline is not None,
@@ -449,6 +475,7 @@ async def perguntar_rag_geral(
         import traceback
         traceback.print_exc()
         raise HTTPException(500, f"Erro ao processar busca geral: {str(e)}")
+<<<<<<< HEAD
     
 @app.get("/documento/{id_doc}")
 async def buscar_documento_por_id(id_doc: int):
@@ -526,6 +553,8 @@ async def buscar_documento_por_id(id_doc: int):
     except Exception as e:
         print(f"❌ Erro ao buscar documento {id_doc}: {e}")
         raise HTTPException(500, f"Erro ao buscar documento: {str(e)}")
+=======
+>>>>>>> 956673175342fd5f3b4874e600070ee10c9aef7c
     
 @app.get("/rag/status")
 async def status_rag():

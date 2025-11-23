@@ -171,9 +171,19 @@ function exibirResultados(resultado) {
     
     // Gera cards dos documentos
     resultsGrid.innerHTML = resultado.documentos.map(doc => {
-        // Pega primeiro envolvido e primeiro CPF/CNPJ
+    
         const envolvido = doc.envolvidos[0] || { empresa: 'N/A', representante: 'N/A' };
-        const cpf_cnpj = doc.cpf_cnpj[0] || { cpf: '-', cnpj: '-' };
+        const cpf_cnpj = doc.cpf_cnpj || [];
+
+        const listaCPF = cpf_cnpj
+            .map(item => item.cpf)
+            .filter(cpf => cpf)
+            .join(" & ") || "-";
+
+        const listaCNPJ = cpf_cnpj
+            .map(item => item.cnpj)
+            .filter(cnpj => cnpj)
+            .join(" & ") || "-";
         
         // Formata data
         const data = doc.data_assinatura 
@@ -198,17 +208,17 @@ function exibirResultados(resultado) {
                         <strong>Representante:</strong>
                         <span>${envolvido.representante}</span>
                     </div>
-                    ${cpf_cnpj.cpf ? `
-                    <div class="doc-info-item">
-                        <strong>CPF:</strong>
-                        <span>${cpf_cnpj.cpf}</span>
-                    </div>
+                    ${listaCPF !== "-" ? `
+                        <div class="doc-info-item">
+                            <strong>CPF:</strong>
+                            <span>${listaCPF}</span>
+                        </div>
                     ` : ''}
-                    ${cpf_cnpj.cnpj ? `
-                    <div class="doc-info-item">
-                        <strong>CNPJ:</strong>
-                        <span>${cpf_cnpj.cnpj}</span>
-                    </div>
+                    ${listaCNPJ !== "-" ? `
+                        <div class="doc-info-item">
+                            <strong>CNPJ:</strong>
+                            <span>${listaCNPJ}</span>
+                        </div>
                     ` : ''}
                     ${doc.score_relevancia ? `
                     <div class="doc-info-item">

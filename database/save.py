@@ -1,8 +1,19 @@
+import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from extraction.main_extrc import processar_pdf
 from insercao import inserir_documento, inserir_cpf_cnpj, inserir_envolvido, inserir_relacionamento_cpf_cnpj, inserir_relacionamento_envolvido
 from config_conexao import conectar_banco, fechar_conexao
+<<<<<<< HEAD
 from typing import Dict, List, Optional
 from mysql.connector import Error
 from recon.main_extrc import processar_pdf
+=======
+from typing import Dict
+
+>>>>>>> 956673175342fd5f3b4874e600070ee10c9aef7c
 
 
 def salvar_no_banco(resultado: Dict) -> bool:
@@ -24,7 +35,7 @@ def salvar_no_banco(resultado: Dict) -> bool:
     conexao = conectar_banco()
     
     if not conexao:
-        print("❌ Não foi possível conectar ao banco de dados")
+        print("Não foi possível conectar ao banco de dados")
         return False
     
     try:
@@ -33,6 +44,10 @@ def salvar_no_banco(resultado: Dict) -> bool:
         
         doc = resultado['documento']
         
+        if not doc['dt_cntr']:
+            print(f"Emissão de documento não encontrada para {doc['nm_arquivo']}")
+        
+
         # Verifica duplicata (atualmente desativado)
         '''id_doc_existente = verificar_duplicata(conexao, doc['nm_arquivo'], doc['tipo_doc'])
         
@@ -65,32 +80,30 @@ def salvar_no_banco(resultado: Dict) -> bool:
                 raise Exception(f"Falha ao inserir envolvido: {envolvido['razao_social']}")
         
         # 3. Insere CPF/CNPJ e relacionamentos
-        # OTIMIZAÇÃO: Junta CPF e CNPJ na mesma linha quando possível
-        cpfs = [item['CPF'] for item in resultado['cpf_cnpj'] if item.get('CPF')]
-        cnpjs = [item['CNPJ'] for item in resultado['cpf_cnpj'] if item.get('CNPJ')]
+        cpfs = resultado['cpf_cnpj']['cpf']
+        cnpjs = resultado['cpf_cnpj']['cnpj']
         
-        # Determina quantas linhas serão necessárias
-        max_linhas = max(len(cpfs), len(cnpjs))
+        cpf = cpfs[0] if len(cpfs) >= 1 else None
+        cpf2 = cpfs[1] if len(cpfs) >= 2 else None
         
-        for i in range(max_linhas):
-            cpf = cpfs[i] if i < len(cpfs) else None
-            cnpj = cnpjs[i] if i < len(cnpjs) else None
+        cnpj= cnpjs[0] if len(cnpjs) >= 1 else None
+        cnpj2 = cnpjs[1] if len(cnpjs) >= 2 else None
+
+        id_pjpf = inserir_cpf_cnpj(conexao, cpf, cnpj, cpf2, cnpj2)   
             
-            id_pjpf = inserir_cpf_cnpj(conexao, cpf, cnpj)
-            
-            if id_pjpf:
-                inserir_relacionamento_cpf_cnpj(conexao, id_doc, id_pjpf)
+        if id_pjpf:
+            inserir_relacionamento_cpf_cnpj(conexao, id_doc, id_pjpf)
                 
                 # Monta string para log
-                valores = []
-                if cpf:
-                    valores.append(f"CPF: {cpf}")
-                if cnpj:
-                    valores.append(f"CNPJ: {cnpj}")
+            valores = []
+            if cpf:
+                valores.append(f"CPF: {cpf}")
+            if cnpj:
+                valores.append(f"CNPJ: {cnpj}")
                 
-                print(f"  ✓ Inserido: {' | '.join(valores)}")
-            else:
-                raise Exception(f"Falha ao inserir CPF/CNPJ")
+            print(f"  ✓ Inserido: {' | '.join(valores)}")
+        else:
+            raise Exception(f"Falha ao inserir CPF/CNPJ")
         
         conexao.commit()
         print(f"✅ Documento salvo com sucesso!\n")
@@ -99,73 +112,18 @@ def salvar_no_banco(resultado: Dict) -> bool:
         return True
         
     except Exception as e:
-        # Desfaz tudo em caso de erro
         print(f"❌ Erro ao salvar no banco: {e}")
         conexao.rollback()
         fechar_conexao(conexao)
         return False
 
+''' CARLOS AQ TESTAR INSERIR DOCUMENTO NO BANCO 
+caminho_pdf = r"documentos\ALVARO VINICIUS FERRARI - Contrato de Empresa Associada.pdf"
 
-# ============================================================================
-# FUNÇÃO DE PROCESSAMENTO EM LOTE
-# ============================================================================
+resultado = processar_pdf(caminho_pdf)
 
-def processar_e_salvar_pasta(pasta_pdfs: str, limite: int = None) -> Dict:
-    """
-    Processa PDFs e salva no banco de dados.
-    Retorna estatísticas do processamento.
-    """
-    from pathlib import Path
-    
-    # Busca todos os PDFs
-    pasta = Path(pasta_pdfs)
-    arquivos_pdf = list(pasta.glob('*.pdf'))
-    
-    if limite:
-        arquivos_pdf = arquivos_pdf[:limite]
-    
-    total = len(arquivos_pdf)
-    
-    print(f"\n{'='*70}")
-    print(f"PROCESSAMENTO E SALVAMENTO NO BANCO")
-    print(f"{'='*70}")
-    print(f"Total de PDFs: {total}\n")
-    
-    estatisticas = {
-        'total': total,
-        'extraidos_sucesso': 0,
-        'salvos_banco': 0,
-        'erros_extracao': 0,
-        'erros_banco': 0
-    }
-    
-    for i, caminho_pdf in enumerate(arquivos_pdf, 1):
-        print(f"[{i}/{total}] {caminho_pdf.name}")
-        
-        # Extrai dados do PDF (usa função do outro código)
-        resultado = processar_pdf(str(caminho_pdf))
-        
-        if resultado['status'] == 'sucesso':
-            estatisticas['extraidos_sucesso'] += 1
-            
-            # Tenta salvar no banco
-            if salvar_no_banco(resultado):
-                estatisticas['salvos_banco'] += 1
-            else:
-                estatisticas['erros_banco'] += 1
-        else:
-            estatisticas['erros_extracao'] += 1
-            print(f"  ❌ Erro na extração: {resultado['erro']}\n")
-    
-    # Relatório final
-    print(f"\n{'='*70}")
-    print(f"RELATÓRIO FINAL")
-    print(f"{'='*70}")
-    print(f"Total processados: {estatisticas['total']}")
-    print(f"Extraídos com sucesso: {estatisticas['extraidos_sucesso']}")
-    print(f"Salvos no banco: {estatisticas['salvos_banco']}")
-    print(f"Erros na extração: {estatisticas['erros_extracao']}")
-    print(f"Erros ao salvar: {estatisticas['erros_banco']}")
-    print(f"{'='*70}\n")
-    
-    return estatisticas
+if salvar_no_banco(resultado):
+    print("Salvo no banco")
+else:
+    print("Erro ao salvar")
+'''
