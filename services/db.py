@@ -1,18 +1,15 @@
 from typing import List
 from datetime import date
-from database.config_conexao import DB_CONFIG, conectar_banco, fechar_conexao, executar_query
-from mysql.connector import connect, Error
+from database.config_conexao import executar_query
 
-
-
-def buscar_documentos_mysql(tipo_doc: str = None, 
+def buscar_documentos_mysql(termo_busca: str = None, tipo_doc: str = None, 
                            data_inicio: date = None, data_fim: date = None) -> List[dict]:
     """
-    Busca documentos no MySQL usando palavras-chave.
-    Retorna lista de documentos com informações completas.
+    Busca documentos no MySQL filtrando pelo termo de busca e metadados.
+    (Versão compatível com banco sem CPF2/CNPJ2)
     """
     
-    # Query base com JOINs
+    # 1. Query ajustada: Removidos c.CPF2 e c.CNPJ2 que não existem no banco
     query = """
         SELECT
             d.id_doc,
@@ -22,19 +19,32 @@ def buscar_documentos_mysql(tipo_doc: str = None,
             p.empresa_assoc,
             p.titular,
             c.CPF,
-            c.CPF2,
-            c.CNPJ,
-            c.CNPJ2
+            c.CNPJ
         FROM documento d
         LEFT JOIN doc_prt_envolvida de ON d.id_doc = de.id_doc
         LEFT JOIN prt_envolvida p ON de.id_prt = p.id_prt
         LEFT JOIN doc_pf_pj dpf ON d.id_doc = dpf.id_doc
         LEFT JOIN cpf_cnpj c ON dpf.id_pjpf = c.id_pjpf
-        LIMIT 50;
+        WHERE 1=1 
     """
         
     params = []
     
+    # 2. Lógica de busca textual
+    if termo_busca:
+        termo_like = f"%{termo_busca}%"
+        # Removemos também a busca em CPF2/CNPJ2 aqui para evitar erros
+        query += """ 
+            AND (
+                d.nm_arquivo LIKE %s OR 
+                p.empresa_assoc LIKE %s OR 
+                p.titular LIKE %s OR
+                c.CPF LIKE %s OR
+                c.CNPJ LIKE %s
+            )
+        """
+        params.extend([termo_like] * 5)
+
     if tipo_doc:
         query += " AND d.tipo_doc LIKE %s"
         params.append(f"%{tipo_doc}%")
@@ -47,13 +57,13 @@ def buscar_documentos_mysql(tipo_doc: str = None,
         query += " AND d.emissao_doc <= %s"
         params.append(data_fim)
     
-    query += " ORDER BY d.emissao_doc DESC LIMIT 100"
+    query += " ORDER BY d.id_doc DESC LIMIT 100"
     
     return executar_query(query, tuple(params))
 
 def agrupar_documentos(resultados_mysql: List[dict]) -> List[dict]:
     """
-    Agrupa resultados por documento (um documento pode ter múltiplos envolvidos/CPFs).
+    Agrupa resultados por documento.
     """
     documentos_agrupados = {}
     
@@ -70,7 +80,7 @@ def agrupar_documentos(resultados_mysql: List[dict]) -> List[dict]:
                 'cpf_cnpj': []
             }
         
-        # Adiciona envolvido (se não for duplicado)
+        # Adiciona envolvido
         if row.get('empresa_assoc'):
             envolvido = {
                 'empresa': row['empresa_assoc'],
@@ -79,18 +89,13 @@ def agrupar_documentos(resultados_mysql: List[dict]) -> List[dict]:
             if envolvido not in documentos_agrupados[id_doc]['envolvidos']:
                 documentos_agrupados[id_doc]['envolvidos'].append(envolvido)
         
-        # Adiciona CPF/CNPJ (se não for duplicado)
-        if row.get('CPF'):
-            documentos_agrupados[id_doc]['cpf_cnpj'].append({
+        # Adiciona CPF/CNPJ (Sem lógica de CPF2/CNPJ2)
+        if row.get('CPF') or row.get('CNPJ'):
+            dados_cpf = {
                 'cpf': row['CPF'],
                 'cnpj': row['CNPJ']
-            })
-
-        # caso existam CPF2 CNPJ2 
-        if row.get('CPF2') or row.get('CNPJ2'):
-            documentos_agrupados[id_doc]['cpf_cnpj'].append({
-                'cpf': row['CPF2'] if row.get('CPF2') else None,
-                'cnpj': row['CNPJ2'] if row.get('CNPJ2') else None
-            })
+            }
+            if dados_cpf not in documentos_agrupados[id_doc]['cpf_cnpj']:
+                documentos_agrupados[id_doc]['cpf_cnpj'].append(dados_cpf)
 
     return list(documentos_agrupados.values())

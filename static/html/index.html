@@ -19,25 +19,28 @@
         <div class="user-info">
             <div class="user-avatar">👤</div>
             <div class="user-details">
-                <h3>Usuário</h3>
-                <p>Administrativo</p>
+                <h3 id="userName">Usuário</h3>
+                <p id="userType">Carregando...</p>
             </div>
         </div>
 
         <nav class="nav-menu">
-            <a href="/static/index.html" class="nav-item active">
+            <a href="/index" class="nav-item active">
                 <span class="nav-icon">📄</span>
                 <span>Buscar Documentos</span>
             </a>
-            <a href="/busca-avancada" class="nav-item">
-                <span class="nav-icon">🔍</span>
-                <span>Busca Avançada</span>
-            </a>
-            <a href="#" class="nav-item">
+            <a href="#" class="nav-item" id="navRelatorios" style="display: none;">
                 <span class="nav-icon">📊</span>
                 <span>Relatórios</span>
             </a>
         </nav>
+
+        <div class="sidebar-footer">
+            <a href="#" class="nav-item logout" onclick="logout(event)">
+                <span class="nav-icon">🚪</span>
+                <span>Sair</span>
+            </a>
+        </div>
     </aside>
 
     <!-- MAIN CONTENT -->
@@ -125,5 +128,69 @@
     </div>
 
     <script src="/static/js/app.js"></script>
+    <script>
+        function verificarAutenticacao() {
+            const usuarioLogado = localStorage.getItem('usuarioLogado');
+            
+            if (!usuarioLogado) {
+                window.location.href = '/login';
+                return null;
+            }
+            
+            try {
+                return JSON.parse(usuarioLogado);
+            } catch (error) {
+                console.error('Erro ao parsear dados do usuário:', error);
+                localStorage.removeItem('usuarioLogado');
+                window.location.href = '/login';
+                return null;
+            }
+        }
+
+        function carregarDadosUsuario() {
+            const usuario = verificarAutenticacao();
+            
+            if (!usuario) return;
+            
+            const userName = document.getElementById('userName');
+            if (userName) {
+                const primeiroNome = usuario.nome.split(' ')[0];
+                userName.textContent = primeiroNome;
+            }
+            
+            const userType = document.getElementById('userType');
+            if (userType) {
+                const tipoTexto = usuario.tipo === 'admin' ? 'Administrador' : 'Usuário';
+                userType.textContent = tipoTexto;
+            }
+            
+            const navRelatorios = document.getElementById('navRelatorios');
+            if (navRelatorios) {
+                if (usuario.tipo === 'admin') {
+                    navRelatorios.style.display = 'flex';
+                } else {
+                    navRelatorios.style.display = 'none';
+                }
+            }
+            
+            console.log('✅ Usuário carregado:', usuario.nome, '- Tipo:', usuario.tipo);
+        }
+
+        function logout(event) {
+            event.preventDefault();
+            
+            if (confirm('Deseja realmente sair do sistema?')) {
+                localStorage.removeItem('usuarioLogado');
+                window.location.href = '/login';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            verificarAutenticacao();
+            carregarDadosUsuario();
+            console.log('✅ Página index.html carregada');
+            console.log('✅ app.js carregado:', typeof buscarDocumentos !== 'undefined');
+        });
+    </script>
 </body>
 </html>

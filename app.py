@@ -1,12 +1,9 @@
 from fastapi import FastAPI, HTTPException, Query
-<<<<<<< HEAD
 from database.models import Documento, EntidadeEmpresa, PrtEnvolvida, CpfCnpj 
 from database.config_conexao import DB_CONFIG, conectar_banco, fechar_conexao, executar_query
-from recon.main_extrc import processar_pdf
-=======
+from extraction.main_extrc import processar_pdf
 from database.models import Documento
 from database.config_conexao import conectar_banco, executar_query
->>>>>>> 956673175342fd5f3b4874e600070ee10c9aef7c
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict, Optional
 from pydantic import BaseModel
@@ -22,18 +19,17 @@ from src.rag_pipeline import RAGPipeline
 
 app = FastAPI()
 
-# Pressupõe que seu app.py está em 'rag-juridico/'
+# Pressupoẽ que seu app.py está em 'rag-juridico/'
 # e seus arquivos estáticos em 'rag-juridico/static/'
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 
-# Caminho para o seu index.html
-# ATENÇÃO: Mova seu index.html para 'static/html/index.html'
+# Caminhos para os arquivos HTML
 INDEX_HTML_PATH = os.path.join(STATIC_DIR, "html", "index.html")
 BUSCA_DIR = os.path.join(STATIC_DIR, "html", "busca-avancada.html")
+LOGIN_HTML_PATH = os.path.join(STATIC_DIR, "html", "login.html")
 
 # Esta linha serve a pasta "static" na URL "/static"
-# É por isso que o <link href="/static/css/style.css"> funciona
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 class Envolvido(BaseModel):
@@ -43,7 +39,7 @@ class Envolvido(BaseModel):
 class CPF_CNPJ(BaseModel):
     cpf: Optional[str] = None
     cnpj: Optional[str] = None
-    cpf2: Optional[str] = None  # p caso com + de 1 cpf ou cnpj
+    cpf2: Optional[str] = None
     cnpj2: Optional[str] = None  
 
 class Documento(BaseModel):
@@ -63,7 +59,6 @@ class BuscaResponse(BaseModel):
 class PerguntaRAGRequest(BaseModel):
     id_doc: int
     pergunta: str
-    
 
 # CORS (permite frontend acessar a API)
 app.add_middleware(
@@ -75,17 +70,38 @@ app.add_middleware(
 )
 
 # ============================================================================
-# ENDPOINTS
+# ENDPOINTS DE PÁGINAS HTML
 # ============================================================================
 
 @app.get("/", response_class=HTMLResponse)
+async def redirect_to_login():
+    """Redireciona raiz para login"""
+    return HTMLResponse(
+        content='<meta http-equiv="refresh" content="0; url=/login">',
+        status_code=200
+    )
+
+@app.get("/login", response_class=HTMLResponse)
+async def get_login():
+    """Serve a página de login"""
+    try:
+        with open(LOGIN_HTML_PATH, "r", encoding="utf-8") as f:
+            html_content = f.read()
+        return HTMLResponse(content=html_content, status_code=200)
+    except FileNotFoundError:
+        return HTMLResponse(
+            "<h1>Erro 404: Arquivo login.html não encontrado.</h1>"
+            f"<p>Verifique se ele existe em: {LOGIN_HTML_PATH}</p>",
+            status_code=404
+        )
+
+@app.get("/index", response_class=HTMLResponse)
 async def get_frontend(request: Request):
     """Serve o frontend (index.html)"""
     try:
         with open(INDEX_HTML_PATH, "r", encoding="utf-8") as f:
             html_content = f.read()
         return HTMLResponse(content=html_content, status_code=200)
-
     except FileNotFoundError:
         return HTMLResponse(
             "<h1>Erro 500: Arquivo index.html não encontrado.</h1>"
@@ -97,17 +113,19 @@ async def get_frontend(request: Request):
 async def get_busca_avancada():
     """Serve a página de Busca Avançada"""
     try:
-        # Tenta ler o arquivo renomeado
         with open(BUSCA_DIR, "r", encoding="utf-8") as f:
             html_content = f.read()
         return HTMLResponse(content=html_content, status_code=200)
     except FileNotFoundError:
-        # Fallback caso você não tenha renomeado ou movido o arquivo ainda
         return HTMLResponse(
             "<h1>Erro 404: Arquivo busca-avancada.html não encontrado.</h1>"
             f"<p>Verifique se o arquivo existe em: {BUSCA_DIR}</p>",
             status_code=404
         )
+
+# ============================================================================
+# ENDPOINTS DE API
+# ============================================================================
 
 @app.get("/buscar", response_model=BuscaResponse)
 def buscar(
@@ -214,10 +232,6 @@ def estatisticas():
     result = executar_query(query_tipos)
     stats['tipos_documento'] = {row['tipo_doc']: row['quantidade'] for row in result}
     
-<<<<<<< HEAD
-    # ===== ADICIONE ESTAS LINHAS =====
-=======
->>>>>>> 956673175342fd5f3b4874e600070ee10c9aef7c
     # Estatísticas RAG
     stats['rag'] = {
         "pipeline_carregado": rag_pipeline is not None,
@@ -237,7 +251,6 @@ def health_check():
         return {"status": "healthy", "database": "connected"}
     else:
         return {"status": "unhealthy", "database": "disconnected"}
-    
 
 # ============================================================================
 # RAG - CACHE EM MEMÓRIA
@@ -245,26 +258,22 @@ def health_check():
 rag_cache: Dict[int, Dict] = {}
 rag_pipeline: Optional[RAGPipeline] = None
 
-
 def get_rag_pipeline():
     """
-        Retorna instância do RAG Pipeline.
-        Cria apenas na primeira vez que for chamado (lazy loading).
+    Retorna instância do RAG Pipeline.
+    Cria apenas na primeira vez que for chamado (lazy loading).
     """
     global rag_pipeline
     
     if rag_pipeline is None:
-
         print("🤖 PRIMEIRA CHAMADA AO RAG - INICIALIZANDO RAG PIPELINE // 1-3 min")
         rag_pipeline = RAGPipeline()
         print("✅ RAG PIPELINE PRONTO ")
     return rag_pipeline
 
-
 # ============================================================================
 # ENDPOINTS RAG
 # ============================================================================
-
 
 @app.post("/rag/processar/{id_doc}")
 async def processar_documento_rag(id_doc: int):
@@ -272,45 +281,92 @@ async def processar_documento_rag(id_doc: int):
     Processa um documento específico para uso com RAG.
     Indexa apenas esse documento no Pinecone.
     
+    IMPORTANTE: Adaptado para documentos armazenados em drive externo.
+    Se o arquivo não for encontrado localmente, tenta buscar do drive.
+    
     Retorna: Status de processamento
     """
     try:
         # 1. Busca documento no banco
         query = """
-            SELECT id_doc, nm_arquivo, caminho_arquivo 
+            SELECT id_doc, nm_arquivo
             FROM documento 
             WHERE id_doc = %s
         """
         docs = executar_query(query, (id_doc,))
         
         if not docs:
-            raise HTTPException(404, "Documento não encontrado")
+            raise HTTPException(404, "Documento não encontrado no banco de dados")
         
         doc = docs[0]
-        caminho_pdf = doc['caminho_arquivo']
+        nome_arquivo = doc['nm_arquivo']
         
-        # Verifica se arquivo existe
-        if not os.path.exists(caminho_pdf):
-            raise HTTPException(404, f"PDF não encontrado: {caminho_pdf}")
-        
-        print(f"📄 Processando documento: {doc['nm_arquivo']}")
+        print(f"📄 Documento solicitado: {nome_arquivo}")
         
         # 2. Verifica cache
         if id_doc in rag_cache:
             print(f"✅ Documento já processado (cache)")
             return {
                 "status": "ja_processado",
-                "documento": doc['nm_arquivo'],
-                "chunks": len(rag_cache[id_doc]['chunks'])
-            }   
+                "documento": nome_arquivo,
+                "chunks": rag_cache[id_doc].get('chunks', 0),
+                "message": "Documento já foi indexado anteriormente"
+            }
+        
+        # 3. TENTA LOCALIZAR O ARQUIVO
+        # Você pode configurar múltiplos caminhos possíveis
+        caminhos_possiveis = [
+            f"./documentos/{nome_arquivo}",
+            f"./pdfs/{nome_arquivo}",
+            f"/mnt/drive/documentos/{nome_arquivo}",
+            # Adicione outros caminhos onde os PDFs podem estar
+        ]
+        
+        caminho_pdf = None
+        for caminho in caminhos_possiveis:
+            if os.path.exists(caminho):
+                caminho_pdf = caminho
+                print(f"✅ Arquivo encontrado em: {caminho}")
+                break
+        
+        # 4. Se não encontrou o arquivo localmente
+        if not caminho_pdf:
+            print(f"⚠️ Arquivo não encontrado localmente: {nome_arquivo}")
+            
+            # Retorna erro informativo
+            raise HTTPException(
+                status_code=404, 
+                detail={
+                    "error": "Arquivo PDF não encontrado",
+                    "documento": nome_arquivo,
+                    "id_doc": id_doc,
+                    "mensagem": "O arquivo não está disponível no servidor. Verifique se o drive está montado ou faça upload do PDF.",
+                    "caminhos_verificados": caminhos_possiveis
+                }
+            )
+        
+        # 5. PROCESSA O DOCUMENTO
+        print(f"🔄 Processando documento: {nome_arquivo}")
         
         pipeline = get_rag_pipeline()
-
         document_id = f"doc_{id_doc}"
-        num_chunks = pipeline.index_doc(caminho_pdf, document_id)
+        
+        try:
+            num_chunks = pipeline.index_doc(caminho_pdf, document_id)
+        except Exception as e:
+            print(f"❌ Erro ao processar PDF: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail={
+                    "error": "Erro ao processar PDF",
+                    "documento": nome_arquivo,
+                    "mensagem": f"Não foi possível extrair texto do PDF: {str(e)}"
+                }
+            )
 
+        # 6. Salva no cache
         rag_cache[id_doc] = {
-            "arquivo": doc['nm_arquivo'],
+            "arquivo": nome_arquivo,
             "caminho": caminho_pdf,
             "document_id": document_id,
             "chunks": num_chunks,
@@ -319,15 +375,19 @@ async def processar_documento_rag(id_doc: int):
 
         return {
             "status": "processado",
-            "documento": doc['nm_arquivo'],
+            "documento": nome_arquivo,
             "id_doc": id_doc,
             "chunks": num_chunks,
+            "caminho": caminho_pdf
         }
     
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"❌ Erro ao processar documento {id_doc}: {e}")
+        print(f"❌ Erro inesperado ao processar documento {id_doc}: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(500, f"Erro ao processar: {str(e)}")
-
 
 @app.post("/rag/perguntar")
 async def perguntar_rag(request: PerguntaRAGRequest):
@@ -475,7 +535,6 @@ async def perguntar_rag_geral(
         import traceback
         traceback.print_exc()
         raise HTTPException(500, f"Erro ao processar busca geral: {str(e)}")
-<<<<<<< HEAD
     
 @app.get("/documento/{id_doc}")
 async def buscar_documento_por_id(id_doc: int):
@@ -546,15 +605,12 @@ async def buscar_documento_por_id(id_doc: int):
                 for c in cpf_cnpj
             ]
         }
-
         
     except HTTPException:
         raise
     except Exception as e:
         print(f"❌ Erro ao buscar documento {id_doc}: {e}")
         raise HTTPException(500, f"Erro ao buscar documento: {str(e)}")
-=======
->>>>>>> 956673175342fd5f3b4874e600070ee10c9aef7c
     
 @app.get("/rag/status")
 async def status_rag():
@@ -615,9 +671,11 @@ async def limpar_cache_completo():
         
     except Exception as e:
         raise HTTPException(500, f"Erro ao limpar cache: {str(e)}")
-# EXECUTAR
 
+# ============================================================================
+# EXECUTAR
+# ============================================================================
 if __name__ == "__main__":
-    host = os.getenv("HOST")
-    port = os.getenv("PORT")
+    host = os.getenv("HOST", "127.0.0.1")
+    port = int(os.getenv("PORT", 8000))
     uvicorn.run(app, host=host, port=port, reload=True)

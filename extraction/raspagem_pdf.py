@@ -64,7 +64,6 @@ def extrair_pfpj(caminho_pdf):
         "cnpj": cnpj_filtrados,
     } 
 
-
 def extrair_info_arquivo(caminho_pdf: str) -> Dict:
 
     nome_arquivo = os.path.splitext(os.path.basename(caminho_pdf))[0]
@@ -165,6 +164,12 @@ def extrair_envolvidos(caminho_pdf: str, empresas_arquivo: List[str]) -> List[Di
     
     return resultado
 
+def extrair_dados_ia(caminho_pdf: str) -> Dict:
+    """Função Wrapper para chamar no main"""
+    texto = ocr_pdf(caminho_pdf)
+    if texto:
+        return extrair_com_openai(texto)
+    return {"pessoas": [], "empresas": []}
 
 def extrair_data(caminho_pdf):
     

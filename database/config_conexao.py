@@ -7,8 +7,8 @@ import os
 load_dotenv() 
 
 DB_CONFIG = {
-    'host': 'localhost',
-    'database': 'bsc_documentos',
+    'host': '127.0.0.1',
+    'database': 'banco',
     'user': os.getenv('DB_USER'), 
     'password': os.getenv('DB_PASSWORD'),
     'charset': 'utf8mb4',

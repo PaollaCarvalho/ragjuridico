@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BIOPARK Documentos v2</title>
+    <title>BIOPARK Documentos - Login</title>
     <style>
         * {
             margin: 0;
@@ -13,7 +13,7 @@
 
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #000A1F, #002F5E, #002F5E);
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -23,7 +23,6 @@
             position: relative;
         }
 
-        /* Efeito de partículas/círculos decorativos */
         body::before {
             content: '';
             position: absolute;
@@ -68,7 +67,6 @@
             z-index: 1;
         }
 
-        /* LADO ESQUERDO - BRANDING */
         .login-left {
             flex: 1;
             padding: 60px 50px;
@@ -125,20 +123,13 @@
             max-width: 300px;
         }
 
-        .illustration {
-            margin-top: 40px;
-            max-width: 80%;
-            opacity: 0.9;
-        }
-
-        /* LADO DIREITO - FORMULÁRIO */
         .login-right {
             flex: 1;
             padding: 60px 50px;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            background: white; 
+            background: white;
         }
 
         .login-header {
@@ -147,15 +138,54 @@
 
         .login-title {
             font-size: 30px;
-            color: #2c3e50; 
+            color: #2c3e50;
             margin-bottom: 10px;
             font-weight: 700;
         }
 
         .login-subtitle {
-            color: #7f8c8d; 
+            color: #7f8c8d;
             font-size: 15px;
             font-weight: 300;
+        }
+
+        /* ALERTAS */
+        .alert {
+            padding: 14px 18px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: none;
+            align-items: center;
+            gap: 10px;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .alert-error {
+            background: #fee;
+            color: #c33;
+            border: 1px solid #fcc;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-icon {
+            font-size: 18px;
         }
 
         .form-group {
@@ -166,7 +196,7 @@
         .form-label {
             display: block;
             margin-bottom: 8px;
-            color: #2c3e50; 
+            color: #2c3e50;
             font-weight: 500;
             font-size: 14px;
         }
@@ -174,23 +204,29 @@
         .form-input {
             width: 100%;
             padding: 14px 16px;
-            border: 2px solid #e0e6ed; 
+            border: 2px solid #e0e6ed;
             border-radius: 10px;
             font-size: 15px;
-            background: white; 
-            color: #2c3e50; 
+            background: white;
+            color: #2c3e50;
             transition: all 0.3s ease;
             outline: none;
+            font-family: inherit;
         }
 
         .form-input::placeholder {
-            color: #95a5a6; 
+            color: #95a5a6;
         }
 
         .form-input:focus {
-            border-color: #e63946; 
+            border-color: #e63946;
             background: white;
             box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.1);
+        }
+
+        .form-input.error {
+            border-color: #e74c3c;
+            background: #fff5f5;
         }
 
         .form-options {
@@ -205,7 +241,9 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            color: #7f8c8d; 
+            color: #7f8c8d;
+            cursor: pointer;
+            user-select: none;
         }
 
         .checkbox-container input {
@@ -216,18 +254,17 @@
         }
 
         .forgot-password {
-            color: #e63946; 
+            color: #e63946;
             text-decoration: none;
-            font-weight: 500; 
+            font-weight: 500;
             transition: color 0.3s;
         }
 
         .forgot-password:hover {
-            color: #d62828; 
+            color: #d62828;
             text-decoration: underline;
         }
 
-        /* BOTÃO PRINCIPAL */
         .btn-login {
             width: 100%;
             margin-top: 12px;
@@ -242,9 +279,10 @@
             letter-spacing: 0.5px;
             transition: all 0.3s ease;
             box-shadow: 0 4px 15px rgba(230, 57, 70, 0.3);
+            font-family: inherit;
         }
 
-        .btn-login:hover {
+        .btn-login:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(230, 57, 70, 0.4);
         }
@@ -253,7 +291,12 @@
             transform: translateY(0);
         }
 
-        /* BOTÃO INSTITUCIONAL - GLASSMORPHISM */
+        .btn-login:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
         .btn-institucional {
             width: 100%;
             margin-top: 18px;
@@ -266,6 +309,7 @@
             font-size: 15px;
             font-weight: 500;
             transition: all 0.3s ease;
+            font-family: inherit;
         }
 
         .btn-institucional:hover {
@@ -274,11 +318,26 @@
             transform: translateY(-1px);
         }
 
+        /* Responsivo */
+        @media (max-width: 768px) {
+            .login-container {
+                flex-direction: column;
+            }
+
+            .login-left {
+                border-right: none;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+                padding: 40px 30px;
+            }
+
+            .login-right {
+                padding: 40px 30px;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="login-container">
-        <!-- LADO ESQUERDO - BRANDING -->
         <div class="login-left">
             <div class="logo-container">
                 <div class="logo">B</div>
@@ -290,12 +349,13 @@
             </div>
         </div>
 
-        <!-- LADO DIREITO - FORMULÁRIO -->
         <div class="login-right">
             <div class="login-header">
                 <h1 class="login-title">Bem-vindo de volta!</h1>
-                <p class="login-subtitle">Login para acessar o sistema</p>
+                <p class="login-subtitle">Entre com suas credenciais para acessar o sistema</p>
             </div>
+
+            <div id="alertBox" class="alert"></div>
 
             <form id="loginForm">
                 <div class="form-group">
@@ -305,6 +365,7 @@
                         id="email" 
                         class="form-input" 
                         placeholder="seuemail@bpkedu.com"
+                        autocomplete="email"
                         required
                     >
                 </div>
@@ -315,7 +376,8 @@
                         type="password" 
                         id="password" 
                         class="form-input" 
-                        placeholder="•••••••"
+                        placeholder="••••••••"
+                        autocomplete="current-password"
                         required
                     >
                 </div>
@@ -325,17 +387,197 @@
                         <input type="checkbox" id="remember">
                         <span>Lembrar-me</span>
                     </label>
-                    <a href="#" class="forgot-password">Esqueci minha senha</a>
+                    <a href="#" class="forgot-password" onclick="esqueceuSenha(event)">Esqueci minha senha</a>
                 </div>
 
-                <button type="submit" class="btn-login">Entrar</button>
+                <button type="submit" class="btn-login" id="btnLogin">Entrar</button>
 
-                <button type="button" class="btn-institucional">
+                <button type="button" class="btn-institucional" onclick="loginInstitucional()">
                     Entrar com e-mail institucional Biopark
                 </button>
             </form>
         </div>
     </div>
-    <script src="C:\Users\Usuario\Documents\DOCS\BPK\proj\projeto_busca_juridico\ragjuridico\static\js\login.js"></script>
+
+    <script>
+        // ========================================
+        // BANCO DE DADOS SIMULADO DE USUÁRIOS
+        // ========================================
+        const usuarios = [
+            { 
+                email: 'paola.carvalho@alunos.bpkedu.com', 
+                senha: '1234', 
+                nome: 'Paola Carvalho',
+                tipo: 'admin'
+            },
+            { 
+                email: 'usuario@biopark.com.br', 
+                senha: 'senha123', 
+                nome: 'Usuário Teste',
+                tipo: 'user'
+            },
+            { 
+                email: 'admin@biopark.com.br', 
+                senha: 'admin', 
+                nome: 'Administrador',
+                tipo: 'admin'
+            }
+        ];
+
+        // ========================================
+        // FUNÇÕES DE ALERTA
+        // ========================================
+        function mostrarAlerta(mensagem, tipo) {
+            const alertBox = document.getElementById('alertBox');
+            const icon = tipo === 'success' ? '✅' : '❌';
+            
+            alertBox.innerHTML = `<span class="alert-icon">${icon}</span><span>${mensagem}</span>`;
+            alertBox.className = `alert alert-${tipo}`;
+            alertBox.style.display = 'flex';
+            
+            setTimeout(() => {
+                alertBox.style.display = 'none';
+            }, 5000);
+        }
+
+        function limparAlerta() {
+            const alertBox = document.getElementById('alertBox');
+            alertBox.style.display = 'none';
+        }
+
+        // ========================================
+        // CARREGA EMAIL SALVO (se existir)
+        // ========================================
+        window.addEventListener('load', () => {
+            const emailSalvo = localStorage.getItem('lembrarEmail');
+            if (emailSalvo) {
+                document.getElementById('email').value = emailSalvo;
+                document.getElementById('remember').checked = true;
+            }
+
+            document.getElementById('email').addEventListener('focus', () => {
+                document.getElementById('email').classList.remove('error');
+                limparAlerta();
+            });
+
+            document.getElementById('password').addEventListener('focus', () => {
+                document.getElementById('password').classList.remove('error');
+                limparAlerta();
+            });
+        });
+
+        // ========================================
+        // FUNÇÃO PRINCIPAL DE LOGIN
+        // ========================================
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const emailInput = document.getElementById('email');
+            const passwordInput = document.getElementById('password');
+            const btnLogin = document.getElementById('btnLogin');
+            
+            const email = emailInput.value.trim();
+            const password = passwordInput.value;
+            const lembrarMe = document.getElementById('remember').checked;
+            
+            emailInput.classList.remove('error');
+            passwordInput.classList.remove('error');
+            limparAlerta();
+            
+            if (!email) {
+                mostrarAlerta('Por favor, digite seu email.', 'error');
+                emailInput.classList.add('error');
+                emailInput.focus();
+                return;
+            }
+
+            if (!password) {
+                mostrarAlerta('Por favor, digite sua senha.', 'error');
+                passwordInput.classList.add('error');
+                passwordInput.focus();
+                return;
+            }
+
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                mostrarAlerta('Por favor, digite um email válido.', 'error');
+                emailInput.classList.add('error');
+                emailInput.focus();
+                return;
+            }
+            
+            btnLogin.disabled = true;
+            btnLogin.textContent = 'Entrando...';
+            
+            setTimeout(() => {
+                const usuarioEncontrado = usuarios.find(u => 
+                    u.email.toLowerCase() === email.toLowerCase() && 
+                    u.senha === password
+                );
+                
+                if (usuarioEncontrado) {
+                    const dadosUsuario = {
+                        email: usuarioEncontrado.email,
+                        nome: usuarioEncontrado.nome,
+                        tipo: usuarioEncontrado.tipo,
+                        dataLogin: new Date().toISOString()
+                    };
+                    
+                    localStorage.setItem('usuarioLogado', JSON.stringify(dadosUsuario));
+                    
+                    if (lembrarMe) {
+                        localStorage.setItem('lembrarEmail', email);
+                    } else {
+                        localStorage.removeItem('lembrarEmail');
+                    }
+                    
+                    mostrarAlerta(`Bem-vindo(a), ${usuarioEncontrado.nome}!`, 'success');
+                    
+                    setTimeout(() => {
+                        window.location.href = '/static/html/index.html';
+                    }, 1000);
+                    
+                } else {
+                    btnLogin.disabled = false;
+                    btnLogin.textContent = 'Entrar';
+                    
+                    mostrarAlerta('Email ou senha incorretos. Tente novamente.', 'error');
+                    passwordInput.value = '';
+                    passwordInput.classList.add('error');
+                    emailInput.classList.add('error');
+                    passwordInput.focus();
+                }
+            }, 300);
+        });
+
+        // ========================================
+        // OUTRAS FUNÇÕES
+        // ========================================
+        function esqueceuSenha(event) {
+            event.preventDefault();
+            mostrarAlerta('Funcionalidade de recuperação de senha em desenvolvimento.', 'error');
+        }
+
+        function loginInstitucional() {
+            mostrarAlerta('Login institucional SSO em desenvolvimento.', 'error');
+        }
+
+        document.getElementById('email').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                document.getElementById('password').focus();
+            }
+        });
+
+        let submitInProgress = false;
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
+            if (submitInProgress) {
+                e.preventDefault();
+                return false;
+            }
+            submitInProgress = true;
+            setTimeout(() => submitInProgress = false, 2000);
+        });
+    </script>
 </body>
 </html>
