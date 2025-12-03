@@ -11,6 +11,8 @@ from datetime import date, datetime
 from fastapi.responses import HTMLResponse  
 from fastapi.staticfiles import StaticFiles 
 from fastapi import FastAPI, HTTPException, Query, Request
+from services.redis_service import get_redis_service, RedisService
+from driveservice.driveservice_util import service as drive_service
 import os
 import uvicorn
 from services.db import buscar_documentos_mysql, agrupar_documentos
@@ -251,6 +253,167 @@ def health_check():
         return {"status": "healthy", "database": "connected"}
     else:
         return {"status": "unhealthy", "database": "disconnected"}
+    
+# ============================================================================
+# CACHE DE DOCUMENTO NO REDIS
+# ============================================================================
+
+@app.post("/documento/{id_doc}/cache")
+async def cache_documento(id_doc: int):
+    """
+    Baixa documento do Google Drive e armazena no Redis
+    Chamado quando usuário clica em "Chat RAG" ou "Detalhes"
+    
+    Returns:
+        Status do cache
+    """
+    try:
+        redis_service = get_redis_service()
+        
+        # 1. Verifica se já está em cache
+        if redis_service.pdf_existe(id_doc):
+            print(f"✅ Documento {id_doc} já está em cache")
+            
+            # Renova TTL para mais 1 hora
+            redis_service.renovar_ttl(id_doc)
+            
+            metadados = redis_service.obter_metadados(id_doc)
+            
+            return {
+                "status": "cached",
+                "message": "Documento já estava em cache",
+                "doc_id": id_doc,
+                "nome_arquivo": metadados.get('nome_arquivo') if metadados else None
+            }
+        
+        # 2. Busca informações do documento no banco
+        query = """
+            SELECT id_doc, nm_arquivo
+            FROM documento 
+            WHERE id_doc = %s
+        """
+        docs = executar_query(query, (id_doc,))
+        
+        if not docs:
+            raise HTTPException(404, "Documento não encontrado no banco de dados")
+        
+        doc = docs[0]
+        nome_arquivo = doc['nm_arquivo']
+        
+        # 3. BUSCA FILE_ID DO GOOGLE DRIVE
+        # Assumindo que você tem uma forma de mapear id_doc -> file_id
+        # Você pode adicionar uma coluna 'drive_file_id' no banco ou usar uma tabela de mapeamento
+        
+        # Por enquanto, vamos buscar pelo nome do arquivo
+        from driveservice.config_google import folder_id
+        
+        query_drive = f"name='{nome_arquivo}' and '{folder_id}' in parents and trashed=false"
+        results = drive_service.files().list(
+            q=query_drive,
+            fields="files(id, name)"
+        ).execute()
+        
+        files = results.get('files', [])
+        
+        if not files:
+            raise HTTPException(
+                404,
+                f"Arquivo {nome_arquivo} não encontrado no Google Drive"
+            )
+        
+        file_id = files[0]['id']
+        
+        # 4. Baixa para Redis
+        print(f"📥 Baixando {nome_arquivo} do Drive para Redis...")
+        
+        sucesso = redis_service.baixar_drive_para_redis(
+            service=drive_service,
+            file_id=file_id,
+            doc_id=id_doc
+        )
+        
+        if not sucesso:
+            raise HTTPException(500, "Erro ao armazenar documento no cache")
+        
+        return {
+            "status": "success",
+            "message": "Documento baixado e armazenado em cache",
+            "doc_id": id_doc,
+            "nome_arquivo": nome_arquivo,
+            "cache_ttl_seconds": 3600  # 1 hora
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Erro ao fazer cache do documento: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, f"Erro ao processar cache: {str(e)}")
+
+@app.get("/cache/info")
+async def info_cache():
+    """Retorna informações sobre o cache Redis"""
+    try:
+        redis_service = get_redis_service()
+        info = redis_service.info_cache()
+        
+        return {
+            "redis": info,
+            "rag_pinecone": {
+                "documentos_indexados": len(rag_cache),
+                "chunks_total": sum(doc.get('chunks', 0) for doc in rag_cache.values())
+            }
+        }
+    except Exception as e:
+        raise HTTPException(500, f"Erro ao obter info do cache: {str(e)}")
+
+
+@app.delete("/cache/limpar")
+async def limpar_cache():
+    """Limpa cache Redis e Pinecone"""
+    try:
+        redis_service = get_redis_service()
+        
+        # Limpa Redis
+        docs_redis = redis_service.limpar_todos()
+        
+        # Limpa cache RAG
+        docs_rag = len(rag_cache)
+        rag_cache.clear()
+        
+        return {
+            "status": "success",
+            "redis_documentos_removidos": docs_redis,
+            "rag_cache_limpo": docs_rag
+        }
+    except Exception as e:
+        raise HTTPException(500, f"Erro ao limpar cache: {str(e)}")
+
+
+@app.delete("/cache/documento/{id_doc}")
+async def limpar_cache_documento(id_doc: int):
+    """Remove documento específico do cache"""
+    try:
+        redis_service = get_redis_service()
+        
+        # Remove do Redis
+        removido_redis = redis_service.limpar_documento(id_doc)
+        
+        # Remove do cache RAG
+        removido_rag = False
+        if id_doc in rag_cache:
+            del rag_cache[id_doc]
+            removido_rag = True
+        
+        return {
+            "status": "success",
+            "id_doc": id_doc,
+            "removido_redis": removido_redis,
+            "removido_rag": removido_rag
+        }
+    except Exception as e:
+        raise HTTPException(500, f"Erro ao remover documento do cache: {str(e)}")
 
 # ============================================================================
 # RAG - CACHE EM MEMÓRIA
@@ -279,14 +442,17 @@ def get_rag_pipeline():
 async def processar_documento_rag(id_doc: int):
     """
     Processa um documento específico para uso com RAG.
-    Indexa apenas esse documento no Pinecone.
+    AGORA USA REDIS ao invés de disco local.
     
-    IMPORTANTE: Adaptado para documentos armazenados em drive externo.
-    Se o arquivo não for encontrado localmente, tenta buscar do drive.
-    
-    Retorna: Status de processamento
+    Fluxo:
+    1. Verifica se está em cache Redis
+    2. Se não, baixa do Google Drive para Redis
+    3. Processa PDF do Redis (cria arquivo temp se necessário)
+    4. Indexa no Pinecone
     """
     try:
+        redis_service = get_redis_service()
+        
         # 1. Busca documento no banco
         query = """
             SELECT id_doc, nm_arquivo
@@ -303,9 +469,9 @@ async def processar_documento_rag(id_doc: int):
         
         print(f"📄 Documento solicitado: {nome_arquivo}")
         
-        # 2. Verifica cache
+        # 2. Verifica cache RAG (Pinecone já processado)
         if id_doc in rag_cache:
-            print(f"✅ Documento já processado (cache)")
+            print(f"✅ Documento já processado (Pinecone)")
             return {
                 "status": "ja_processado",
                 "documento": nome_arquivo,
@@ -313,48 +479,50 @@ async def processar_documento_rag(id_doc: int):
                 "message": "Documento já foi indexado anteriormente"
             }
         
-        # 3. TENTA LOCALIZAR O ARQUIVO
-        # Você pode configurar múltiplos caminhos possíveis
-        caminhos_possiveis = [
-            f"./documentos/{nome_arquivo}",
-            f"./pdfs/{nome_arquivo}",
-            f"/mnt/drive/documentos/{nome_arquivo}",
-            # Adicione outros caminhos onde os PDFs podem estar
-        ]
-        
-        caminho_pdf = None
-        for caminho in caminhos_possiveis:
-            if os.path.exists(caminho):
-                caminho_pdf = caminho
-                print(f"✅ Arquivo encontrado em: {caminho}")
-                break
-        
-        # 4. Se não encontrou o arquivo localmente
-        if not caminho_pdf:
-            print(f"⚠️ Arquivo não encontrado localmente: {nome_arquivo}")
+        # 3. Verifica se PDF está em cache Redis
+        if not redis_service.pdf_existe(id_doc):
+            print(f"⚠️ PDF não está em cache, baixando do Drive...")
             
-            # Retorna erro informativo
-            raise HTTPException(
-                status_code=404, 
-                detail={
-                    "error": "Arquivo PDF não encontrado",
-                    "documento": nome_arquivo,
-                    "id_doc": id_doc,
-                    "mensagem": "O arquivo não está disponível no servidor. Verifique se o drive está montado ou faça upload do PDF.",
-                    "caminhos_verificados": caminhos_possiveis
-                }
-            )
+            # Chama endpoint de cache
+            cache_result = await cache_documento(id_doc)
+            
+            if cache_result['status'] != 'success' and cache_result['status'] != 'cached':
+                raise HTTPException(500, "Erro ao fazer cache do documento")
         
-        # 5. PROCESSA O DOCUMENTO
+        # 4. Obtém PDF do Redis como arquivo temporário
+        print(f"📄 Recuperando PDF do Redis...")
+        caminho_temp = redis_service.obter_pdf_como_arquivo_temp(id_doc)
+        
+        if not caminho_temp:
+            raise HTTPException(500, "Erro ao recuperar PDF do cache")
+        
+        # 5. PROCESSA O DOCUMENTO (EXTRAÇÃO + INDEXAÇÃO)
         print(f"🔄 Processando documento: {nome_arquivo}")
         
-        pipeline = get_rag_pipeline()
-        document_id = f"doc_{id_doc}"
-        
         try:
-            num_chunks = pipeline.index_doc(caminho_pdf, document_id)
+            pipeline = get_rag_pipeline()
+            document_id = f"doc_{id_doc}"
+            
+            # Indexa no Pinecone
+            num_chunks = pipeline.index_doc(caminho_temp, document_id)
+            
+            # Remove arquivo temporário
+            try:
+                os.remove(caminho_temp)
+                print(f"🗑️ Arquivo temporário removido: {caminho_temp}")
+            except:
+                pass
+            
         except Exception as e:
             print(f"❌ Erro ao processar PDF: {e}")
+            
+            # Limpa arquivo temp em caso de erro
+            try:
+                if caminho_temp and os.path.exists(caminho_temp):
+                    os.remove(caminho_temp)
+            except:
+                pass
+            
             raise HTTPException(
                 status_code=500,
                 detail={
@@ -364,13 +532,13 @@ async def processar_documento_rag(id_doc: int):
                 }
             )
 
-        # 6. Salva no cache
+        # 6. Salva no cache RAG (em memória Python)
         rag_cache[id_doc] = {
             "arquivo": nome_arquivo,
-            "caminho": caminho_pdf,
             "document_id": document_id,
             "chunks": num_chunks,
-            "processado_em": datetime.now()
+            "processado_em": datetime.now(),
+            "cache_redis": True  # Flag indicando que usa Redis
         }
 
         return {
@@ -378,7 +546,7 @@ async def processar_documento_rag(id_doc: int):
             "documento": nome_arquivo,
             "id_doc": id_doc,
             "chunks": num_chunks,
-            "caminho": caminho_pdf
+            "fonte": "redis_cache"
         }
     
     except HTTPException:
@@ -548,14 +716,13 @@ async def buscar_documento_por_id(id_doc: int):
         Objeto Documento com todos os detalhes
     """
     try:
-        # Query principal do documento
+        # Query principal do documento (SEM caminho_arquivo)
         query_doc = """
             SELECT 
                 d.id_doc,
                 d.nm_arquivo as nome_arquivo,
                 d.tipo_doc,
-                d.dt_ass as data_assinatura,
-                d.caminho_arquivo
+                d.emissao_doc as data_assinatura
             FROM documento d
             WHERE d.id_doc = %s
         """
@@ -569,47 +736,76 @@ async def buscar_documento_por_id(id_doc: int):
         
         # Busca envolvidos
         query_envolvidos = """
-            SELECT empresa_assoc as empresa, titular as representante
-            FROM prt_envolvida
-            WHERE id_doc = %s
+            SELECT pe.empresa_assoc as empresa, pe.titular as representante
+            FROM prt_envolvida pe
+            INNER JOIN doc_prt_envolvida dpe ON pe.id_prt = dpe.id_prt
+            WHERE dpe.id_doc = %s
         """
-        envolvidos = executar_query(query_envolvidos, (id_doc,))
+        envolvidos_raw = executar_query(query_envolvidos, (id_doc,))
+        
+        # Garante que sempre retorna um array, mesmo vazio
+        envolvidos = []
+        if envolvidos_raw:
+            envolvidos = [
+                {
+                    "empresa": e.get("empresa", "N/A"),
+                    "representante": e.get("representante", "N/A")
+                }
+                for e in envolvidos_raw
+            ]
+        
+        # Se não encontrou nenhum envolvido, adiciona um placeholder
+        if not envolvidos:
+            envolvidos = [{
+                "empresa": "Informação não disponível",
+                "representante": "Informação não disponível"
+            }]
         
         # Busca CPF/CNPJ
         query_cpf_cnpj = """
-            SELECT CPF as cpf, CNPJ as cnpj
-            FROM cpf_cnpj
-            WHERE id_doc = %s
+            SELECT cc.CPF as cpf, cc.CNPJ as cnpj, cc.CPF2 as cpf2, cc.CNPJ2 as cnpj2
+            FROM cpf_cnpj cc
+            INNER JOIN doc_pf_pj dpj ON cc.id_pjpf = dpj.id_pjpf
+            WHERE dpj.id_doc = %s
         """
-        cpf_cnpj = executar_query(query_cpf_cnpj, (id_doc,))
+        cpf_cnpj_raw = executar_query(query_cpf_cnpj, (id_doc,))
+
+        # Formatação do CPF/CNPJ para o modelo esperado
+        cpf_cnpj_formatado = []
+        if cpf_cnpj_raw:
+            for item in cpf_cnpj_raw:
+                cpf_cnpj_formatado.append({
+                    "cpf": item.get("cpf"),
+                    "cnpj": item.get("cnpj"),
+                    "cpf2": item.get("cpf2"),
+                    "cnpj2": item.get("cnpj2")
+                })
         
-        # Monta resposta
+        # Se não tem CPF/CNPJ, adiciona objeto vazio
+        if not cpf_cnpj_formatado:
+            cpf_cnpj_formatado = [{
+                "cpf": None,
+                "cnpj": None,
+                "cpf2": None,
+                "cnpj2": None
+            }]
+
+        # Monta resposta (SEMPRE com arrays válidos)
         return {
             "id_doc": doc["id_doc"],
-            "nome_arquivo": doc["nome_arquivo"],
-            "tipo_doc": doc["tipo_doc"],
+            "nome_arquivo": doc["nome_arquivo"] or "Documento sem nome",
+            "tipo_doc": doc["tipo_doc"] or "Tipo não especificado",
             "data_assinatura": doc["data_assinatura"].isoformat() if doc.get("data_assinatura") else None,
-            "caminho_arquivo": doc.get("caminho_arquivo"),
-            "envolvidos": [
-                {
-                    "empresa": e["empresa"],
-                    "representante": e["representante"]
-                }
-                for e in envolvidos
-            ],
-            "cpf_cnpj": [
-                {
-                    "cpf": c.get("cpf"),
-                    "cnpj": c.get("cnpj")
-                }
-                for c in cpf_cnpj
-            ]
+            "envolvidos": envolvidos,  # ✅ Sempre um array
+            "cpf_cnpj": cpf_cnpj_formatado  # ✅ Sempre um array
         }
         
     except HTTPException:
         raise
     except Exception as e:
         print(f"❌ Erro ao buscar documento {id_doc}: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(500, f"Erro ao buscar documento: {str(e)}")
     
 @app.get("/rag/status")

@@ -143,21 +143,39 @@ function criarCardDocumento(doc) {
         
         <div style="display: flex; gap: 10px; margin-top: 15px;">
             <button 
-                class="btn-primary" 
+                class="btn-primary btn-chat-rag" 
+                data-doc-id="${doc.id_doc}"
                 style="flex: 1; padding: 10px; font-size: 0.9rem;"
-                onclick="abrirChatRAG(${doc.id_doc})"
             >
                 🤖 Chat RAG
             </button>
             <button 
-                class="btn-primary" 
+                class="btn-primary btn-detalhes" 
+                data-doc-id="${doc.id_doc}"
                 style="flex: 1; padding: 10px; font-size: 0.9rem; background: var(--gradient-accent);"
-                onclick="verDetalhes(${doc.id_doc})"
             >
                 📋 Detalhes
             </button>
         </div>
     `;
+    
+    // Adiciona event listeners após criar o card
+    const btnChatRag = card.querySelector('.btn-chat-rag');
+    const btnDetalhes = card.querySelector('.btn-detalhes');
+    
+    if (btnChatRag) {
+        btnChatRag.addEventListener('click', (e) => {
+            e.stopPropagation();
+            abrirChatRAG(doc.id_doc);
+        });
+    }
+    
+    if (btnDetalhes) {
+        btnDetalhes.addEventListener('click', (e) => {
+            e.stopPropagation();
+            verDetalhes(doc.id_doc);
+        });
+    }
     
     return card;
 }
@@ -166,12 +184,65 @@ function criarCardDocumento(doc) {
 // NAVEGAÇÃO
 // ========================================
 
-function abrirChatRAG(idDoc) {
-    window.location.href = `/busca-avancada?doc=${idDoc}`;
+async function abrirChatRAG(idDoc) {
+    try {
+        // Mostra indicador de loading
+        const btnElement = event.target;
+        const textoOriginal = btnElement.innerHTML;
+        btnElement.disabled = true;
+        btnElement.innerHTML = '⏳ Carregando...';
+        
+        // Faz cache do documento no Redis
+        console.log('📥 Fazendo cache do documento', idDoc);
+        
+        const cacheResponse = await fetch(`${API_BASE_URL}/documento/${idDoc}/cache`, {
+            method: 'POST'
+        });
+        
+        if (cacheResponse.ok) {
+            const cacheData = await cacheResponse.json();
+            console.log('✅ Documento em cache:', cacheData);
+        } else {
+            console.warn('⚠️ Erro ao fazer cache, mas continuando...');
+        }
+        
+        // Redireciona para Chat RAG
+        window.location.href = `/busca-avancada?doc=${idDoc}`;
+        
+    } catch (error) {
+        console.error('❌ Erro ao carregar documento:', error);
+        alert('Erro ao carregar documento. Tente novamente.');
+        
+        // Restaura botão
+        if (btnElement) {
+            btnElement.disabled = false;
+            btnElement.innerHTML = textoOriginal;
+        }
+    }
 }
 
-function verDetalhes(idDoc) {
-    abrirModal(idDoc);
+async function verDetalhes(idDoc) {
+    try {
+        // Faz cache do documento antes de abrir modal
+        console.log('📥 Fazendo cache do documento', idDoc);
+        
+        const cacheResponse = await fetch(`${API_BASE_URL}/documento/${idDoc}/cache`, {
+            method: 'POST'
+        });
+        
+        if (cacheResponse.ok) {
+            const cacheData = await cacheResponse.json();
+            console.log('✅ Documento em cache:', cacheData);
+        }
+        
+        // Abre modal com detalhes
+        abrirModal(idDoc);
+        
+    } catch (error) {
+        console.error('❌ Erro ao fazer cache:', error);
+        // Abre modal mesmo se cache falhar
+        abrirModal(idDoc);
+    }
 }
 
 // ========================================

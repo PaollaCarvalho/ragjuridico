@@ -364,12 +364,22 @@
 
             try {
                 const response = await fetch(`${API_BASE_URL}/documento/${docId}`);
+                
+                if (!response.ok) {
+                    throw new Error(`Erro HTTP: ${response.status}`);
+                }
+                
                 const doc = await response.json();
                 
                 documentoAtual = doc;
                 
                 // Atualiza título
-                document.getElementById('docTitle').textContent = doc.nome_arquivo;
+                document.getElementById('docTitle').textContent = doc.nome_arquivo || 'Documento';
+                
+                // Garante que envolvidos existe e tem pelo menos um item
+                const envolvido = (doc.envolvidos && doc.envolvidos[0]) 
+                    ? doc.envolvidos[0] 
+                    : { empresa: 'N/A', representante: 'N/A' };
                 
                 // Atualiza metadados
                 const metaHtml = `
@@ -383,11 +393,11 @@
                     </div>
                     <div class="doc-meta-item">
                         <span class="doc-meta-icon">🏢</span>
-                        <span>${doc.envolvidos[0]?.empresa || 'N/A'}</span>
+                        <span>${envolvido.empresa}</span>
                     </div>
                     <div class="doc-meta-item">
                         <span class="doc-meta-icon">👤</span>
-                        <span>${doc.envolvidos[0]?.representante || 'N/A'}</span>
+                        <span>${envolvido.representante}</span>
                     </div>
                 `;
                 document.getElementById('docMeta').innerHTML = metaHtml;
@@ -410,7 +420,7 @@
                 
             } catch (error) {
                 console.error('Erro ao carregar documento:', error);
-                alert('Erro ao carregar documento!');
+                alert('Erro ao carregar documento: ' + error.message);
                 window.location.href = '/index';
             }
         }
