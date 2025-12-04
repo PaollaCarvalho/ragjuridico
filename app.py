@@ -11,6 +11,9 @@ from datetime import date, datetime
 from fastapi.responses import HTMLResponse  
 from fastapi.staticfiles import StaticFiles 
 from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import Response, StreamingResponse
+import base64
+import io
 from services.redis_service import get_redis_service, RedisService
 from driveservice.driveservice_util import service as drive_service
 import os
@@ -258,6 +261,130 @@ def health_check():
 # CACHE DE DOCUMENTO NO REDIS
 # ============================================================================
 
+@app.get("/documento/{id_doc}/pdf")
+async def obter_pdf(id_doc: int):
+    """
+    Retorna o PDF armazenado no Redis
+    Para exibição no navegador
+    """
+    try:
+        redis_service = get_redis_service()
+        
+        # Busca PDF no Redis
+        pdf_bytes = redis_service.obter_pdf(id_doc)
+        
+        if not pdf_bytes:
+            # Tenta fazer cache se não estiver
+            cache_result = await cache_documento(id_doc)
+            
+            if cache_result['status'] not in ['success', 'cached']:
+                raise HTTPException(404, "PDF não disponível")
+            
+            pdf_bytes = redis_service.obter_pdf(id_doc)
+            
+            if not pdf_bytes:
+                raise HTTPException(404, "Erro ao recuperar PDF")
+        
+        # Busca metadados
+        metadados = redis_service.obter_metadados(id_doc)
+        nome_arquivo = metadados.get('nome_arquivo', f'documento_{id_doc}.pdf') if metadados else f'documento_{id_doc}.pdf'
+        
+        # Retorna PDF como stream
+        return StreamingResponse(
+            io.BytesIO(pdf_bytes),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'inline; filename="{nome_arquivo}"',
+                "Content-Type": "application/pdf"
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Erro ao servir PDF: {e}")
+        raise HTTPException(500, f"Erro ao obter PDF: {str(e)}")
+
+@app.get("/documento/{id_doc}/texto")
+async def obter_texto_pdf(id_doc: int):
+    """
+    Retorna o texto extraído do PDF
+    Útil para preview e busca
+    """
+    try:
+        redis_service = get_redis_service()
+        
+        # Tenta extrair texto
+        texto = redis_service.extrair_texto_pdf(id_doc)
+        
+        if not texto:
+            raise HTTPException(404, "Texto não disponível")
+        
+        return {
+            "id_doc": id_doc,
+            "texto": texto,
+            "num_caracteres": len(texto),
+            "num_palavras": len(texto.split())
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Erro ao extrair texto: {e}")
+        raise HTTPException(500, f"Erro ao extrair texto: {str(e)}")
+
+
+@app.post("/documento/{id_doc}/highlights")
+async def obter_highlights(id_doc: int, pergunta: str):
+    """
+    Retorna trechos relevantes do documento para a pergunta
+    Para fazer highlight no PDF
+    
+    Args:
+        id_doc: ID do documento
+        pergunta: Pergunta para buscar trechos relevantes
+    
+    Returns:
+        Lista de trechos com scores
+    """
+    try:
+        # Verifica se documento está processado
+        if id_doc not in rag_cache:
+            result = await processar_documento_rag(id_doc)
+            if result.get('status') != 'processado' and result.get('status') != 'ja_processado':
+                raise HTTPException(500, "Erro ao processar documento")
+        
+        # Busca chunks relevantes
+        pipeline = get_rag_pipeline()
+        document_id = f"doc_{id_doc}"
+        
+        chunks = pipeline.get_highlighted_chunks(
+            query=pergunta,
+            document_id=document_id,
+            top_k=10  # Top 10 trechos mais relevantes
+        )
+        
+        return {
+            "id_doc": id_doc,
+            "pergunta": pergunta,
+            "highlights": [
+                {
+                    "texto": chunk['texto'],
+                    "score": chunk['score'],
+                    "rank": chunk['rank'],
+                    "chunk_index": chunk['chunk_index']
+                }
+                for chunk in chunks
+            ],
+            "total_highlights": len(chunks)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Erro ao obter highlights: {e}")
+        raise HTTPException(500, f"Erro: {str(e)}")
+
 @app.post("/documento/{id_doc}/cache")
 async def cache_documento(id_doc: int):
     """
@@ -441,14 +568,7 @@ def get_rag_pipeline():
 @app.post("/rag/processar/{id_doc}")
 async def processar_documento_rag(id_doc: int):
     """
-    Processa um documento específico para uso com RAG.
-    AGORA USA REDIS ao invés de disco local.
-    
-    Fluxo:
-    1. Verifica se está em cache Redis
-    2. Se não, baixa do Google Drive para Redis
-    3. Processa PDF do Redis (cria arquivo temp se necessário)
-    4. Indexa no Pinecone
+    Processa documento do REDIS para RAG
     """
     try:
         redis_service = get_redis_service()
@@ -482,47 +602,22 @@ async def processar_documento_rag(id_doc: int):
         # 3. Verifica se PDF está em cache Redis
         if not redis_service.pdf_existe(id_doc):
             print(f"⚠️ PDF não está em cache, baixando do Drive...")
-            
-            # Chama endpoint de cache
             cache_result = await cache_documento(id_doc)
             
-            if cache_result['status'] != 'success' and cache_result['status'] != 'cached':
+            if cache_result['status'] not in ['success', 'cached']:
                 raise HTTPException(500, "Erro ao fazer cache do documento")
         
-        # 4. Obtém PDF do Redis como arquivo temporário
-        print(f"📄 Recuperando PDF do Redis...")
-        caminho_temp = redis_service.obter_pdf_como_arquivo_temp(id_doc)
-        
-        if not caminho_temp:
-            raise HTTPException(500, "Erro ao recuperar PDF do cache")
-        
-        # 5. PROCESSA O DOCUMENTO (EXTRAÇÃO + INDEXAÇÃO)
-        print(f"🔄 Processando documento: {nome_arquivo}")
+        # 4. PROCESSA DIRETO DO REDIS (SEM ARQUIVO TEMPORÁRIO)
+        print(f"🔄 Processando documento direto do Redis...")
         
         try:
             pipeline = get_rag_pipeline()
-            document_id = f"doc_{id_doc}"
             
-            # Indexa no Pinecone
-            num_chunks = pipeline.index_doc(caminho_temp, document_id)
-            
-            # Remove arquivo temporário
-            try:
-                os.remove(caminho_temp)
-                print(f"🗑️ Arquivo temporário removido: {caminho_temp}")
-            except:
-                pass
+            # Indexa direto do Redis
+            num_chunks = pipeline.index_doc_from_redis(redis_service, id_doc)
             
         except Exception as e:
             print(f"❌ Erro ao processar PDF: {e}")
-            
-            # Limpa arquivo temp em caso de erro
-            try:
-                if caminho_temp and os.path.exists(caminho_temp):
-                    os.remove(caminho_temp)
-            except:
-                pass
-            
             raise HTTPException(
                 status_code=500,
                 detail={
@@ -532,13 +627,14 @@ async def processar_documento_rag(id_doc: int):
                 }
             )
 
-        # 6. Salva no cache RAG (em memória Python)
+        # 5. Salva no cache RAG (em memória Python)
+        document_id = f"doc_{id_doc}"
         rag_cache[id_doc] = {
             "arquivo": nome_arquivo,
             "document_id": document_id,
             "chunks": num_chunks,
             "processado_em": datetime.now(),
-            "cache_redis": True  # Flag indicando que usa Redis
+            "fonte": "redis"  # Flag indicando que veio do Redis
         }
 
         return {
@@ -546,7 +642,7 @@ async def processar_documento_rag(id_doc: int):
             "documento": nome_arquivo,
             "id_doc": id_doc,
             "chunks": num_chunks,
-            "fonte": "redis_cache"
+            "fonte": "redis"
         }
     
     except HTTPException:
@@ -593,7 +689,7 @@ async def perguntar_rag(request: PerguntaRAGRequest):
         print(f"💬 Pergunta: '{request.pergunta}' para documento: {document_id}")
         
         # 2. Cria filtro Pinecone para buscar APENAS nesse documento
-        filtro_pinecone = {"arquivo_origem": {"$eq": document_id}}
+        filtro_pinecone = {"document_id": {"$eq": document_id}}
         
         # 3. Chama RAG
         resposta, contexto = pipeline.answer(request.pergunta, filter_metadata=filtro_pinecone)

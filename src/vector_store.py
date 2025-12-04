@@ -38,7 +38,7 @@ class PineconeService:
         print(f"Enviando {len(vectors)} vetores para o index '{self.index_name}'...")
         self.index.upsert(vectors=vectors, batch_size=100)
 
-    '''def query(self, vector: List[float], top_k: int, filter_dict: Dict = None) -> List[Dict]:
+    def query(self, vector: List[float], top_k: int, filter_dict: Dict = None) -> List[Dict]:
         """Consulta o index, permitindo filtros."""
         query_params = {
             "vector": vector,
@@ -58,4 +58,3 @@ class PineconeService:
     def get_stats(self):
         """Retorna as estatísticas do index."""
         return self.index.describe_index_stats()
-'''

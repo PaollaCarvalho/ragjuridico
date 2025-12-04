@@ -296,9 +296,6 @@
             <div class="pdf-preview-section">
                 <div class="preview-header">
                     <h3 id="docTitle">Carregando documento...</h3>
-                    <div class="doc-meta" id="docMeta">
-                        <!-- Metadados serão inseridos aqui -->
-                    </div>
                 </div>
                 <div class="preview-content" id="pdfPreview">
                     <div class="preview-placeholder">
@@ -403,17 +400,14 @@
                 document.getElementById('docMeta').innerHTML = metaHtml;
                 
                 // Carrega preview do PDF
+                const pdfUrl = `${API_BASE_URL}/documento/${doc.id_doc}/pdf`;
+                
                 document.getElementById('pdfPreview').innerHTML = `
-                    <div class="preview-placeholder">
-                        <div class="preview-placeholder-icon">📄</div>
-                        <p><strong>${doc.nome_arquivo}</strong></p>
-                        <p style="font-size: 0.85rem; margin-top: 8px; color: var(--text-medium);">
-                            ID: ${doc.id_doc}
-                        </p>
-                        <p style="font-size: 0.8rem; color: var(--text-light); margin-top: 8px;">
-                            Preview do documento será carregado aqui
-                        </p>
-                    </div>
+                    <iframe 
+                        src="${pdfUrl}" 
+                        class="pdf-embed"
+                        id="pdfViewer"
+                    ></iframe>
                 `;
                 
                 console.log('✅ Documento carregado:', doc);
