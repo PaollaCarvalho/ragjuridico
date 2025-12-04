@@ -164,13 +164,6 @@ def extrair_envolvidos(caminho_pdf: str, empresas_arquivo: List[str]) -> List[Di
     
     return resultado
 
-def extrair_dados_ia(caminho_pdf: str) -> Dict:
-    """Função Wrapper para chamar no main"""
-    texto = ocr_pdf(caminho_pdf)
-    if texto:
-        return extrair_com_openai(texto)
-    return {"pessoas": [], "empresas": []}
-
 def extrair_data(caminho_pdf):
     
     read_lastpg = ler_pgsdoc(caminho_pdf, paginas=[-4, -3, -2, -1])

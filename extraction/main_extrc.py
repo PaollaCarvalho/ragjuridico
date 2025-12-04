@@ -10,9 +10,9 @@ from extraction.raspagem_pdf import (
     extrair_envolvidos, 
     extrair_data, 
     extrair_info_arquivo, 
-    extrair_pfpj, 
-    extrair_dados_ia # Import específico da lógica de fallback IA
+    extrair_pfpj,
 )
+from extraction.fallback_ia import extrair_dados_ia
 
 # 2. Import do Google Drive
 from driveservice.driveservice_util import baixar_arqdrive
@@ -20,9 +20,9 @@ from driveservice.driveservice_util import baixar_arqdrive
 
 def processar_pdf(caminho_pdf: str) -> Dict:
     """
-    Processa um arquivo PDF localmente no caminho especificado.
-    Inclui lógica de fallback para extração de Envolvidos usando IA.
-    Esta é a função principal para arquivos locais.
+    Processa um arquivo PDF puxando todas as funções de regex.
+    Lógica de fallback para extração de Envolvidos usando IA.
+    Função principal de extração.
     """
     try:
         nome_arquivo = os.path.basename(caminho_pdf)
@@ -32,20 +32,34 @@ def processar_pdf(caminho_pdf: str) -> Dict:
         cpf_cnpj = extrair_pfpj(caminho_pdf)
         emissao_doc = extrair_data(caminho_pdf)
         
-        # --- 2. EXTRAÇÃO DE ENVOLVIDOS (REGEX PRIMEIRO, IA COMO FALLBACK) ---
+        # --- EXTRAÇÃO DE ENVOLVIDOS (if regex funcionar: usamos, se não = IA COMO FALLBACK) ---
         
-        # Tenta extrair envolvidos usando Regex/Regras Fixas
         envolvidos_regex = extrair_envolvidos(caminho_pdf, info_arquivo.get('empresas', []))
-        dados_ia = {'pessoas': [], 'empresas': []} # Inicializa IA como vazio
-        
-        # Se a extração por Regex falhou (lista vazia), usa a IA como fallback
-        if not envolvidos_regex:
-            print("⚠️ Regex não encontrou envolvidos. Usando IA como fallback.")
+
+        usar_fallback = (
+            not envolvidos_regex or 
+            all(not e.get("representante") for e in envolvidos_regex)
+        )
+
+        if usar_fallback:
+            print("⚠️ Regex não encontrou representantes. Usando IA como fallback.")
             dados_ia = extrair_dados_ia(caminho_pdf)
         else:
-            print("✔️ Regex encontrou envolvidos. Pulando IA.")
-        
-        # --- 3. MONTAGEM DO DICIONÁRIO DE RESULTADO ---
+            print("✔️ Regex encontrou representantes. IA não será usada.")
+            dados_ia = {"empresas": [], "representante": ""}
+
+        # Monta lista final de envolvidos, e insere extraidos por IA e tb por regex, porém a IA só é ativada se regex falhar
+        envolvidos_final = []
+
+        for e in envolvidos_regex:
+            envolvidos_final.append(e)
+
+        if dados_ia.get("representante") and dados_ia.get("empresas"):
+            for empresa in dados_ia["empresas"]:
+                envolvidos_final.append({
+                    "razao_social": empresa,
+                    "representante": dados_ia["representante"]
+                })
         
         resultado = {
             'documento': {
@@ -63,7 +77,7 @@ def processar_pdf(caminho_pdf: str) -> Dict:
             },
             'status': 'sucesso',
             'erro': None,
-            'envolvidos': [] 
+            'envolvidos': envolvidos_final,
         }
 
         return resultado
