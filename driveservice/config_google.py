@@ -13,7 +13,7 @@ SCOPES = ["https://www.googleapis.com/auth/drive"]
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # 2. Definir o nome do arquivo da chave
-KEY_FILENAME = 'prjbuscadocs-a970e51aa880.json'
+KEY_FILENAME = 'prjbuscadocs-cc2989266215.json'
 
 # 3. Construir o caminho completo e absoluto para o arquivo JSON
 SERVICE_ACCOUNT_FILE = os.path.join(BASE_DIR, KEY_FILENAME)

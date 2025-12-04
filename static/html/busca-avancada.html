@@ -3,635 +3,217 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat RAG - Documento</title>
+    <title>Visualização do Documento - RAG</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <style>
-        /* LAYOUT ESPECÍFICO DO CHAT RAG */
+        /* CSS Específico para o Layout Dividido (PDF + Chat) */
         .rag-container {
             display: flex;
-            height: calc(100vh - 80px);
-            background: var(--bg-light);
-            gap: var(--spacing-md);
-            padding: var(--spacing-lg);
+            height: calc(100vh - 100px); /* Ajuste para caber na tela sem scroll duplo */
+            gap: 20px;
+            padding: 20px;
         }
 
-        /* PREVIEW DO PDF - LATERAL ESQUERDA */
         .pdf-preview-section {
-            width: 400px;
-            background: white;
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-sm);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .preview-header {
-            padding: var(--spacing-md);
-            border-bottom: 1px solid var(--border);
-            background: var(--bg-light);
-        }
-
-        .preview-header h3 {
-            font-size: 1.1rem;
-            color: var(--text-dark);
-            margin-bottom: 8px;
-        }
-
-        .doc-meta {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            font-size: 0.85rem;
-            color: var(--text-medium);
-        }
-
-        .doc-meta-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .doc-meta-icon {
-            font-size: 1rem;
-        }
-
-        .preview-content {
             flex: 1;
-            padding: var(--spacing-md);
-            overflow-y: auto;
-            background: #f8f9fa;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-section {
+            width: 450px; /* Largura fixa para o chat */
+            display: flex;
+            flex-direction: column;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
 
         .pdf-embed {
             width: 100%;
             height: 100%;
             border: none;
-            border-radius: var(--radius-md);
-            background: white;
-        }
-
-        .preview-placeholder {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-            color: var(--text-light);
-        }
-
-        .preview-placeholder-icon {
-            font-size: 4rem;
-            margin-bottom: var(--spacing-md);
-            opacity: 0.3;
-        }
-
-        /* CHAT AREA - CENTRAL/DIREITA */
-        .chat-section {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .chat-header {
-            background: white;
-            padding: var(--spacing-md) 25px;
-            border-radius: var(--radius-lg);
-            margin-bottom: var(--spacing-md);
-            box-shadow: var(--shadow-sm);
-        }
-
-        .chat-header h2 {
-            color: var(--primary);
-            margin-bottom: 8px;
-            font-size: 1.3rem;
-        }
-
-        .chat-header p {
-            color: var(--text-light);
-            font-size: 0.95rem;
         }
 
         .chat-messages {
             flex: 1;
-            background: white;
-            border-radius: var(--radius-lg);
-            padding: 25px;
+            padding: 20px;
             overflow-y: auto;
-            margin-bottom: var(--spacing-md);
-            box-shadow: var(--shadow-sm);
+            background: #f8f9fa;
         }
 
         .chat-input-container {
+            padding: 20px;
             background: white;
-            padding: var(--spacing-md);
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-sm);
+            border-top: 1px solid #eee;
         }
 
-        .chat-input-wrapper {
-            display: flex;
-            gap: var(--spacing-sm);
-        }
-
-        .chat-input {
-            flex: 1;
-            padding: 14px 18px;
-            border: 2px solid var(--border);
-            border-radius: var(--radius-md);
-            font-size: 0.95rem;
-            resize: none;
-            min-height: 60px;
-            max-height: 120px;
-            transition: all var(--transition-normal);
-            font-family: inherit;
-        }
-
-        .chat-input:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.1);
-        }
-
-        /* MENSAGENS */
-        .message {
-            margin-bottom: var(--spacing-md);
-            animation: slideIn 0.3s ease;
-        }
-
-        .message-user {
-            display: flex;
-            justify-content: flex-end;
-        }
-
-        .message-bot {
-            display: flex;
-            justify-content: flex-start;
-        }
-
+        /* Classes de Mensagem */
+        .message { margin-bottom: 15px; }
+        .message-user { text-align: right; }
+        .message-bot { text-align: left; }
+        
         .message-content {
-            max-width: 75%;
-            padding: 14px 18px;
-            border-radius: var(--radius-lg);
-            line-height: 1.6;
+            display: inline-block;
+            padding: 10px 15px;
+            border-radius: 10px;
+            max-width: 85%;
+            text-align: left;
         }
-
+        
         .message-user .message-content {
-            background: var(--gradient-primary);
+            background: #e63946;
             color: white;
         }
-
+        
         .message-bot .message-content {
-            background: var(--bg-light);
-            color: var(--text-dark);
-            border: 1px solid var(--border);
-        }
-
-        .message-header {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 8px;
-            font-size: 0.85rem;
-            font-weight: 600;
-        }
-
-        .message-bot .message-header {
-            color: var(--text-light);
-        }
-
-        .message-user .message-header {
-            color: rgba(255, 255, 255, 0.9);
-        }
-
-        /* BOTÃO VOLTAR */
-        .back-button-top {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 10px 20px;
-            background: white;
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            color: var(--text-dark);
-            text-decoration: none;
-            font-weight: 500;
-            transition: all var(--transition-normal);
-            box-shadow: var(--shadow-sm);
-        }
-
-        .back-button-top:hover {
-            background: var(--bg-light);
-            border-color: var(--primary);
-            color: var(--primary);
-        }
-
-        /* RESPONSIVO */
-        @media (max-width: 1024px) {
-            .pdf-preview-section {
-                width: 350px;
-            }
-        }
-
-        @media (max-width: 768px) {
-            .rag-container {
-                flex-direction: column;
-            }
-
-            .pdf-preview-section {
-                width: 100%;
-                height: 300px;
-            }
+            background: #e9ecef;
+            color: #333;
         }
     </style>
 </head>
 <body>
-    <!-- SIDEBAR -->
-    <aside class="sidebar">
-        <div class="logo-container">
-            <div class="logo">
-                <div class="logo-icon">B</div>
-                <div class="logo-text">BIOPARK<br>Documentos</div>
+    <div class="top-bar">
+        <a href="/index" class="back-button-top" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: #333; font-weight: bold;">
+            <span>⬅️</span> Voltar para Busca
+        </a>
+        <h2 id="docTitle" style="margin-left: 20px;">Carregando documento...</h2>
+    </div>
+
+    <div class="rag-container">
+        <div class="pdf-preview-section" id="pdfContainer">
+            <p style="text-align:center; margin-top: 50%;">Carregando PDF...</p>
+        </div>
+
+        <div class="chat-section">
+            <div class="chat-header" style="padding: 15px; border-bottom: 1px solid #eee;">
+                <h3 style="margin:0; color: #e63946;">🤖 Assistente Jurídico</h3>
+                <p style="margin:5px 0 0 0; font-size: 0.8rem; color: #666;">Pergunte sobre este contrato</p>
             </div>
-        </div>
 
-        <div class="user-info">
-            <div class="user-avatar">👤</div>
-            <div class="user-details">
-                <h3 id="userName">Usuário</h3>
-                <p id="userType">Carregando...</p>
-            </div>
-        </div>
-
-        <nav class="nav-menu">
-            <a href="/index" class="nav-item">
-                <span class="nav-icon">📄</span>
-                <span>Buscar Documentos</span>
-            </a>
-            <a href="#" class="nav-item" id="navRelatorios" style="display: none;">
-                <span class="nav-icon">📊</span>
-                <span>Relatórios</span>
-            </a>
-        </nav>
-
-        <div class="sidebar-footer">
-            <a href="#" class="nav-item logout" onclick="logout(event)">
-                <span class="nav-icon">🚪</span>
-                <span>Sair</span>
-            </a>
-        </div>
-    </aside>
-
-    <!-- MAIN CONTENT -->
-    <div class="main-content">
-        <div class="top-bar">
-            <a href="/index" class="back-button-top">
-                <span>←</span>
-                <span>Voltar para Busca</span>
-            </a>
-        </div>
-
-        <div class="rag-container">
-            <!-- PREVIEW DO PDF - LATERAL ESQUERDA -->
-            <div class="pdf-preview-section">
-                <div class="preview-header">
-                    <h3 id="docTitle">Carregando documento...</h3>
-                </div>
-                <div class="preview-content" id="pdfPreview">
-                    <div class="preview-placeholder">
-                        <div class="preview-placeholder-icon">📄</div>
-                        <p>Carregando preview...</p>
+            <div class="chat-messages" id="chatMessages">
+                <div class="message message-bot">
+                    <div class="message-content">
+                        Olá! Estou analisando este documento. O que você gostaria de saber sobre ele?
                     </div>
                 </div>
             </div>
 
-            <!-- ÁREA DE CHAT -->
-            <div class="chat-section">
-                <div class="chat-header">
-                    <h2>🤖 Chat RAG - Assistente Jurídico</h2>
-                    <p>Faça perguntas sobre este documento específico</p>
-                </div>
-
-                <div class="chat-messages" id="chatMessages">
-                    <div class="empty-chat">
-                        <div class="empty-chat-icon">💬</div>
-                        <p>Faça uma pergunta sobre o documento</p>
-                        <p style="font-size: 0.85rem; margin-top: 8px;">
-                            Ex: "Qual o valor do contrato?" ou "Quais as cláusulas principais?"
-                        </p>
-                    </div>
-                </div>
-
-                <div class="chat-input-container">
-                    <div class="chat-input-wrapper">
-                        <textarea 
-                            id="chatInput"
-                            class="chat-input"
-                            placeholder="Digite sua pergunta sobre o documento..."
-                            onkeydown="handleKeyPress(event)"
-                        ></textarea>
-                        <button class="btn-send" id="btnSend" onclick="enviarPergunta()">
-                            Enviar 📤
-                        </button>
-                    </div>
-                </div>
+            <div class="chat-input-container">
+                <textarea id="chatInput" placeholder="Ex: Qual o valor do contrato?" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; resize: none;"></textarea>
+                <button onclick="enviarPergunta()" class="btn-primary" style="width: 100%; margin-top: 10px;">Enviar</button>
             </div>
         </div>
     </div>
 
     <script>
         const API_BASE_URL = 'http://localhost:8000';
-        let documentoAtual = null;
+        let documentoAtualId = null;
 
-        // Pega ID do documento da URL
+        // 1. Pega o ID da URL (?doc=123)
         function getDocIdFromURL() {
             const params = new URLSearchParams(window.location.search);
             return params.get('doc');
         }
 
-        // Carrega informações do documento
-        async function carregarDocumento() {
+        // 2. Inicializa a página
+        async function carregarPagina() {
             const docId = getDocIdFromURL();
-            
             if (!docId) {
-                alert('Nenhum documento foi selecionado!');
+                alert('Documento não especificado.');
                 window.location.href = '/index';
                 return;
             }
+            documentoAtualId = docId;
 
+            // Busca metadados do documento
             try {
                 const response = await fetch(`${API_BASE_URL}/documento/${docId}`);
-                
-                if (!response.ok) {
-                    throw new Error(`Erro HTTP: ${response.status}`);
+                if (response.ok) {
+                    const doc = await response.json();
+                    document.getElementById('docTitle').textContent = doc.nome_arquivo;
                 }
-                
-                const doc = await response.json();
-                
-                documentoAtual = doc;
-                
-                // Atualiza título
-                document.getElementById('docTitle').textContent = doc.nome_arquivo || 'Documento';
-                
-                // Garante que envolvidos existe e tem pelo menos um item
-                const envolvido = (doc.envolvidos && doc.envolvidos[0]) 
-                    ? doc.envolvidos[0] 
-                    : { empresa: 'N/A', representante: 'N/A' };
-                
-                // Atualiza metadados
-                const metaHtml = `
-                    <div class="doc-meta-item">
-                        <span class="doc-meta-icon">📋</span>
-                        <span>${doc.tipo_doc || 'Documento'}</span>
-                    </div>
-                    <div class="doc-meta-item">
-                        <span class="doc-meta-icon">📅</span>
-                        <span>${doc.data_assinatura ? new Date(doc.data_assinatura).toLocaleDateString('pt-BR') : 'N/A'}</span>
-                    </div>
-                    <div class="doc-meta-item">
-                        <span class="doc-meta-icon">🏢</span>
-                        <span>${envolvido.empresa}</span>
-                    </div>
-                    <div class="doc-meta-item">
-                        <span class="doc-meta-icon">👤</span>
-                        <span>${envolvido.representante}</span>
-                    </div>
-                `;
-                document.getElementById('docMeta').innerHTML = metaHtml;
-                
-                // Carrega preview do PDF
-                const pdfUrl = `${API_BASE_URL}/documento/${doc.id_doc}/pdf`;
-                
-                document.getElementById('pdfPreview').innerHTML = `
-                    <iframe 
-                        src="${pdfUrl}" 
-                        class="pdf-embed"
-                        id="pdfViewer"
-                    ></iframe>
-                `;
-                
-                console.log('✅ Documento carregado:', doc);
-                
-            } catch (error) {
-                console.error('Erro ao carregar documento:', error);
-                alert('Erro ao carregar documento: ' + error.message);
-                window.location.href = '/index';
+            } catch (e) {
+                console.error("Erro ao buscar detalhes", e);
             }
+
+            // Carrega o PDF no iframe
+            const pdfUrl = `${API_BASE_URL}/documento/${docId}/pdf`;
+            document.getElementById('pdfContainer').innerHTML = `
+                <iframe src="${pdfUrl}" class="pdf-embed"></iframe>
+            `;
+
+            // Processa o documento no RAG (Backend)
+            // Isso garante que o RAG já "leu" o texto quando o usuário perguntar
+            fetch(`${API_BASE_URL}/rag/processar/${docId}`, { method: 'POST' })
+                .then(r => r.json())
+                .then(data => console.log("RAG processado:", data))
+                .catch(err => console.error("Erro RAG:", err));
         }
 
-        // Envia pergunta ao RAG
+        // 3. Envia pergunta para o Chat
         async function enviarPergunta() {
             const input = document.getElementById('chatInput');
-            const pergunta = input.value.trim();
-            
-            if (!pergunta) return;
-            if (!documentoAtual) {
-                alert('Documento não carregado!');
-                return;
-            }
-            
+            const texto = input.value.trim();
+            if (!texto) return;
+
+            // Adiciona mensagem do usuário
+            adicionarMensagem('user', texto);
             input.value = '';
-            adicionarMensagem('user', pergunta);
-            
-            const btnSend = document.getElementById('btnSend');
-            btnSend.disabled = true;
-            btnSend.innerHTML = 'Processando...';
-            
-            adicionarMensagemLoading();
-            
+
+            // Loading
+            adicionarMensagem('bot', 'Analizando...');
+
             try {
-                // 1. Processa o documento (se necessário)
-                console.log('📄 Processando documento ID:', documentoAtual.id_doc);
-                
-                const processarResponse = await fetch(`${API_BASE_URL}/rag/processar/${documentoAtual.id_doc}`, {
-                    method: 'POST'
-                });
-                
-                if (!processarResponse.ok) {
-                    const errorData = await processarResponse.json();
-                    throw new Error(errorData.detail?.mensagem || errorData.detail || 'Erro ao processar documento');
-                }
-                
-                const processarData = await processarResponse.json();
-                console.log('✅ Documento processado:', processarData);
-                
-                // 2. Faz a pergunta
-                console.log('💬 Enviando pergunta:', pergunta);
-                
-                const ragResponse = await fetch(`${API_BASE_URL}/rag/perguntar`, {
+                const response = await fetch(`${API_BASE_URL}/rag/perguntar`, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        id_doc: documentoAtual.id_doc,
-                        pergunta: pergunta
+                        id_doc: parseInt(documentoAtualId),
+                        pergunta: texto
                     })
                 });
-                
-                if (!ragResponse.ok) {
-                    const errorData = await ragResponse.json();
-                    throw new Error(errorData.detail || 'Erro ao gerar resposta');
-                }
-                
-                const ragData = await ragResponse.json();
-                console.log('✅ Resposta recebida');
-                
-                removerUltimaMensagem();
-                adicionarMensagem('bot', ragData.resposta);
-                
-            } catch (error) {
-                console.error('❌ Erro:', error);
-                removerUltimaMensagem();
-                
-                // Mensagem de erro mais amigável
-                let mensagemErro = '❌ Erro ao processar sua pergunta.\n\n';
-                
-                if (error.message.includes('não encontrado')) {
-                    mensagemErro += '**Arquivo PDF não disponível**\n\n';
-                    mensagemErro += 'O documento pode estar armazenado em um drive externo que não está acessível no momento.\n\n';
-                    mensagemErro += '**Possíveis soluções:**\n';
-                    mensagemErro += '• Verifique se o drive está montado\n';
-                    mensagemErro += '• Faça upload do PDF para o servidor\n';
-                    mensagemErro += '• Entre em contato com o administrador do sistema';
-                } else {
-                    mensagemErro += error.message;
-                }
-                
-                adicionarMensagem('bot', mensagemErro);
-                
-            } finally {
-                btnSend.disabled = false;
-                btnSend.innerHTML = 'Enviar 📤';
-            }
-        }
 
-        function handleKeyPress(event) {
-            if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault();
-                enviarPergunta();
+                const data = await response.json();
+                
+                // Remove loading (última mensagem)
+                const chatMsgs = document.getElementById('chatMessages');
+                chatMsgs.lastElementChild.remove();
+
+                // Adiciona resposta
+                adicionarMensagem('bot', data.resposta);
+
+            } catch (error) {
+                console.error(error);
+                const chatMsgs = document.getElementById('chatMessages');
+                chatMsgs.lastElementChild.remove();
+                adicionarMensagem('bot', 'Desculpe, ocorreu um erro ao processar sua pergunta.');
             }
         }
 
         function adicionarMensagem(tipo, texto) {
-            const chatMessages = document.getElementById('chatMessages');
-            
-            const emptyChat = chatMessages.querySelector('.empty-chat');
-            if (emptyChat) emptyChat.remove();
-            
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message message-${tipo}`;
-            
-            const icon = tipo === 'user' ? '👤' : '🤖';
-            const label = tipo === 'user' ? 'Você' : 'Assistente';
-            
-            const textoFormatado = texto
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\n/g, '<br>');
-            
-            messageDiv.innerHTML = `
-                <div class="message-content">
-                    <div class="message-header">
-                        ${icon} ${label}
-                    </div>
-                    <div>${textoFormatado}</div>
-                </div>
-            `;
-            
-            chatMessages.appendChild(messageDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
+            const div = document.createElement('div');
+            div.className = `message message-${tipo}`;
+            div.innerHTML = `<div class="message-content">${texto}</div>`;
+            document.getElementById('chatMessages').appendChild(div);
+            // Scroll para baixo
+            document.getElementById('chatMessages').scrollTop = document.getElementById('chatMessages').scrollHeight;
         }
 
-        function adicionarMensagemLoading() {
-            const chatMessages = document.getElementById('chatMessages');
-            
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'message message-bot';
-            messageDiv.id = 'loadingMessage';
-            
-            messageDiv.innerHTML = `
-                <div class="message-content">
-                    <div class="message-header">
-                        🤖 Assistente
-                    </div>
-                    <div class="loading-dots">
-                        Pensando
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                    </div>
-                </div>
-            `;
-            
-            chatMessages.appendChild(messageDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-
-        function removerUltimaMensagem() {
-            const loadingMsg = document.getElementById('loadingMessage');
-            if (loadingMsg) loadingMsg.remove();
-        }
-
-        // Funções de autenticação
-        function verificarAutenticacao() {
-            const usuarioLogado = localStorage.getItem('usuarioLogado');
-            
-            if (!usuarioLogado) {
-                window.location.href = '/login';
-                return null;
+        // Enter envia mensagem
+        document.getElementById('chatInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                enviarPergunta();
             }
-            
-            try {
-                return JSON.parse(usuarioLogado);
-            } catch (error) {
-                console.error('Erro ao parsear dados do usuário:', error);
-                localStorage.removeItem('usuarioLogado');
-                window.location.href = '/login';
-                return null;
-            }
-        }
-
-        function carregarDadosUsuario() {
-            const usuario = verificarAutenticacao();
-            
-            if (!usuario) return;
-            
-            const userName = document.getElementById('userName');
-            if (userName) {
-                const primeiroNome = usuario.nome.split(' ')[0];
-                userName.textContent = primeiroNome;
-            }
-            
-            const userType = document.getElementById('userType');
-            if (userType) {
-                const tipoTexto = usuario.tipo === 'admin' ? 'Administrador' : 'Usuário';
-                userType.textContent = tipoTexto;
-            }
-            
-            const navRelatorios = document.getElementById('navRelatorios');
-            if (navRelatorios) {
-                if (usuario.tipo === 'admin') {
-                    navRelatorios.style.display = 'flex';
-                } else {
-                    navRelatorios.style.display = 'none';
-                }
-            }
-        }
-
-        function logout(event) {
-            event.preventDefault();
-            
-            if (confirm('Deseja realmente sair do sistema?')) {
-                localStorage.removeItem('usuarioLogado');
-                window.location.href = '/login';
-            }
-        }
-
-        // Inicialização
-        window.addEventListener('load', () => {
-            console.log('🚀 Chat RAG carregado!');
-            verificarAutenticacao();
-            carregarDadosUsuario();
-            carregarDocumento();
         });
+
+        // Inicia
+        window.addEventListener('load', carregarPagina);
     </script>
 </body>
 </html>
