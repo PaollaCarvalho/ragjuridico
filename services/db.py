@@ -2,7 +2,7 @@ from typing import List
 from datetime import date
 from database.config_conexao import executar_query
 
-def buscar_documentos_mysql(termo_busca: str = None, tipo_doc: str = None, 
+def buscar_documentos_mysql(termos: List[str], tipo_doc: str = None, 
                            data_inicio: date = None, data_fim: date = None) -> List[dict]:
     """
     Busca documentos no MySQL filtrando pelo termo de busca e metadados.
@@ -19,7 +19,9 @@ def buscar_documentos_mysql(termo_busca: str = None, tipo_doc: str = None,
             p.empresa_assoc,
             p.titular,
             c.CPF,
-            c.CNPJ
+            c.CNPJ,
+            c.CPF2,
+            c.CPNJ2
         FROM documento d
         LEFT JOIN doc_prt_envolvida de ON d.id_doc = de.id_doc
         LEFT JOIN prt_envolvida p ON de.id_prt = p.id_prt
@@ -27,23 +29,23 @@ def buscar_documentos_mysql(termo_busca: str = None, tipo_doc: str = None,
         LEFT JOIN cpf_cnpj c ON dpf.id_pjpf = c.id_pjpf
         WHERE 1=1 
     """
-        
+            
     params = []
     
-    # 2. Lógica de busca textual
-    if termo_busca:
-        termo_like = f"%{termo_busca}%"
-        # Removemos também a busca em CPF2/CNPJ2 aqui para evitar erros
-        query += """ 
-            AND (
-                d.nm_arquivo LIKE %s OR 
-                p.empresa_assoc LIKE %s OR 
+    if termos:
+        condicoes_termos = []
+        for termo in termos:
+            termo_like = f"%{termo}%"
+            condicoes_termos.append("""(
+                p.empresa_assoc LIKE %s OR
                 p.titular LIKE %s OR
-                c.CPF LIKE %s OR
-                c.CNPJ LIKE %s
-            )
-        """
-        params.extend([termo_like] * 5)
+                d.nm_arquivo LIKE %s OR
+                REPLACE(REPLACE(REPLACE(c.CPF, '.', ''), '-', ''), ' ', '') LIKE %s OR
+                REPLACE(REPLACE(REPLACE(REPLACE(c.CNPJ, '.', ''), '/', ''), '-', ''), ' ', '') LIKE %s
+            )""")
+            params.extend([termo_like] * 5)
+
+        query += " AND (" + " OR ".join(condicoes_termos) + ")"
 
     if tipo_doc:
         query += " AND d.tipo_doc LIKE %s"
@@ -89,13 +91,17 @@ def agrupar_documentos(resultados_mysql: List[dict]) -> List[dict]:
             if envolvido not in documentos_agrupados[id_doc]['envolvidos']:
                 documentos_agrupados[id_doc]['envolvidos'].append(envolvido)
         
-        # Adiciona CPF/CNPJ (Sem lógica de CPF2/CNPJ2)
-        if row.get('CPF') or row.get('CNPJ'):
-            dados_cpf = {
+        if row.get('CPF'):
+            documentos_agrupados[id_doc]['cpf_cnpj'].append({
                 'cpf': row['CPF'],
                 'cnpj': row['CNPJ']
-            }
-            if dados_cpf not in documentos_agrupados[id_doc]['cpf_cnpj']:
-                documentos_agrupados[id_doc]['cpf_cnpj'].append(dados_cpf)
+            })
+
+        # caso existam CPF2 CNPJ2 
+        if row.get('CPF2') or row.get('CNPJ2'):
+            documentos_agrupados[id_doc]['cpf_cnpj'].append({
+                'cpf': row['CPF2'] if row.get('CPF2') else None,
+                'cnpj': row['CNPJ2'] if row.get('CNPJ2') else None
+            })
 
     return list(documentos_agrupados.values())

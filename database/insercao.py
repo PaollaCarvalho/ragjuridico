@@ -8,15 +8,16 @@ def inserir_documento(conexao, dados: Dict) -> Optional[int]:
         cursor = conexao.cursor()
             
         query = """
-            INSERT INTO documento (nm_arquivo, emissao_doc, tipo_doc, id_empresa)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO documento (nm_arquivo, emissao_doc, tipo_doc, id_empresa, drive_id)
+            VALUES (%s, %s, %s, %s, %s)
         """
         
         valores = (
             dados['nm_arquivo'],
             dados['dt_cntr'] if dados['dt_cntr'] else None,  
             dados['tipo_doc'],
-            ID_EMPRESA_BIOPARK
+            ID_EMPRESA_BIOPARK,
+            dados.get('drive_id') 
         )
         
         cursor.execute(query, valores)

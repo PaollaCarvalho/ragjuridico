@@ -5,7 +5,7 @@ from typing import Dict
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from extraction.main_extrc import processar_arquivo_drive # necessario para testes
-
+from driveservice.driveservice_util import listar_ids_drive
 from insercao import inserir_documento, inserir_cpf_cnpj, inserir_envolvido, inserir_relacionamento_cpf_cnpj, inserir_relacionamento_envolvido
 from config_conexao import conectar_banco, fechar_conexao
 
@@ -34,6 +34,8 @@ def salvar_no_banco(resultado: Dict) -> bool:
         conexao.start_transaction()
         
         doc = resultado['documento']
+
+        doc['drive_id'] = resultado.get('drive_id', doc.get('drive_id'))
         
         if not doc['dt_cntr']:
             print(f"Emissão de documento não encontrada para {doc['nm_arquivo']}")

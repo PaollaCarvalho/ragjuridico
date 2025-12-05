@@ -27,7 +27,6 @@ def processar_pdf(caminho_pdf: str) -> Dict:
     try:
         nome_arquivo = os.path.basename(caminho_pdf)
         
-        # --- 1. EXTRAÇÃO DE INFORMAÇÕES BÁSICAS (Sempre necessárias) ---
         info_arquivo = extrair_info_arquivo(caminho_pdf)
         cpf_cnpj = extrair_pfpj(caminho_pdf)
         emissao_doc = extrair_data(caminho_pdf)
@@ -98,22 +97,20 @@ def processar_pdf(caminho_pdf: str) -> Dict:
             'erro': str(e),
             'envolvidos': [] 
         }
-    
-# 🚀 FUNÇÃO RESTAURADA E EXPORTADA PARA O save.py
+
+
 def processar_arquivo_drive(file_id: str) -> Dict:
     """
     Orquestra todo o processo de extração para um arquivo do Google Drive.
-    1) Baixa arquivo do Google Drive
-    2) Processa o PDF temporário usando processar_pdf (que inclui o fallback IA)
     """
 
-    # 1. Baixa o arquivo do Drive
     caminho_pdf, nome_original = baixar_arqdrive(file_id)
     
-    # 2. Processa o PDF temporário usando a função principal
-    resultado = processar_pdf(caminho_pdf) 
+    resultado = processar_pdf(caminho_pdf)
     
-    # 3. (Opcional) Limpar o arquivo temporário
+    resultado["documento"]["drive_id"] = file_id
+    
+    # limpa o arquivo temporário
     try:
         os.remove(caminho_pdf)
     except OSError as e:

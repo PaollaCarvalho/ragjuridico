@@ -23,6 +23,7 @@ class Documento(Base):
     nm_arquivo = Column(String(100), nullable=False)
     emissao_doc = Column(Date)
     tipo_doc = Column(String(100))
+    drive_id = Column(String(200), nullable=False)
 
 
 class PrtEnvolvida(Base):
